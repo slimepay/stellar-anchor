@@ -9,12 +9,12 @@ This service targets **SEP-10**, **SEP-12**, **SEP-24**, **SEP-6**, and **SEP-31
 
 | SEP | Description |
 |-----|-------------|
-| SEP-1 | `stellar.toml` — the discovery file wallets fetch first |
-| SEP-10 | Web Authentication — proves a wallet owns a keypair |
-| SEP-12 | KYC — collects and stores customer identity information |
-| SEP-24 | Interactive transfers — deposit/withdrawal with a hosted UI flow |
-| SEP-6 | Programmatic transfers — deposit/withdrawal without a browser redirect |
-| SEP-31 | Cross-border B2B payments — USDC in, NGN out |
+| SEP-1 | `stellar.toml`: the discovery file wallets fetch first |
+| SEP-10 | Web Authentication: proves a wallet owns a keypair |
+| SEP-12 | KYC: collects and stores customer identity information |
+| SEP-24 | Interactive transfers: deposit/withdrawal with a hosted UI flow |
+| SEP-6 | Programmatic transfers: deposit/withdrawal without a browser redirect |
+| SEP-31 | Cross-border B2B payments: USDC in, NGN out |
 
 ---
 
@@ -67,7 +67,7 @@ Each SEP handler takes a `Store` interface rather than a direct handle to MongoD
 
 ### MongoDB collections
 
-The service writes to a dedicated `stellar_anchor` database. Main Slimepay collections are untouched.
+The service writes to a dedicated `stellar_anchor` database.
 
 | Collection | Written by |
 |------------|------------|
@@ -116,7 +116,7 @@ CORE_API_URL=http://localhost:8080
 CORE_API_SECRET=
 ```
 
-The service will panic on startup if any required variable is missing. That's intentional — a half-configured anchor silently doing the wrong thing is harder to debug than one that refuses to start.
+The service will panic on startup if any required variable is missing. That's intentional, a half-configured anchor silently doing the wrong thing is harder to debug than one that refuses to start.
 
 ---
 
@@ -184,7 +184,7 @@ go test ./internal/sep10/... -run TestPostChallenge_ClientSignatureVerification 
 | `sep31` | Receiver field validation, USDC-only enforcement, memo ≤32 chars, cross-border transaction creation and retrieval |
 | `toml` | CORS wildcard, correct content-type, all SEP endpoint keys present, both USDC and XLM declared, mainnet config |
 
-75 tests total, all green.
+75 tests total
 
 ---
 
