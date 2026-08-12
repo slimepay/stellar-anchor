@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"net/http"
 	"os"
 
@@ -32,7 +33,7 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to load config")
 	}
 
-	// Derive public keys from seeds at startup â€” fail fast if seeds are invalid
+	// Derive public keys from seeds at startup — fail fast if seeds are invalid
 	anchorKP, err := stellarkeypair.ParseFull(cfg.AnchorSigningSeed)
 	if err != nil {
 		log.Fatal().Err(err).Msg("invalid ANCHOR_SIGNING_SEED")
@@ -71,7 +72,7 @@ func main() {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(corsMiddleware)
 
-	// Stellar anchor discovery â€” Stellar wallets fetch this first
+	// Stellar anchor discovery — Stellar wallets fetch this first
 	r.Get("/.well-known/stellar.toml", toml.Handler(cfg))
 
 	// SEP-10: Wallet Authentication
@@ -113,8 +114,18 @@ func main() {
 	})
 
 	addr := ":" + cfg.Port
-	log.Info().Str("addr", addr).Msg("stellar-anchor listening")
-	if err := http.ListenAndServe(addr, r); err != nil {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatal().Err(err).Str("addr", addr).Msg("failed to bind listen address")
+	}
+
+	log.Info().
+		Str("addr", addr).
+		Str("home_domain", cfg.HomeDomain).
+		Str("web_auth_domain", cfg.WebAuthDomain).
+		Msg("stellar-anchor ready")
+
+	if err := http.Serve(ln, r); err != nil {
 		log.Fatal().Err(err).Msg("server error")
 	}
 }
