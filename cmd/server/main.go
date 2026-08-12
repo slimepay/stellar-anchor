@@ -33,7 +33,7 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to load config")
 	}
 
-	// Derive public keys from seeds at startup — fail fast if seeds are invalid
+	// Derive public keys from seeds at startup - fail fast if seeds are invalid
 	anchorKP, err := stellarkeypair.ParseFull(cfg.AnchorSigningSeed)
 	if err != nil {
 		log.Fatal().Err(err).Msg("invalid ANCHOR_SIGNING_SEED")
@@ -72,7 +72,7 @@ func main() {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(corsMiddleware)
 
-	// Stellar anchor discovery — Stellar wallets fetch this first
+	// Stellar anchor discovery - Stellar wallets fetch this first
 	r.Get("/.well-known/stellar.toml", toml.Handler(cfg))
 
 	// SEP-10: Wallet Authentication
