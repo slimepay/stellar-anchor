@@ -33,7 +33,6 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to load config")
 	}
 
-	// Derive public keys from seeds at startup - fail fast if seeds are invalid
 	anchorKP, err := stellarkeypair.ParseFull(cfg.AnchorSigningSeed)
 	if err != nil {
 		log.Fatal().Err(err).Msg("invalid ANCHOR_SIGNING_SEED")
@@ -58,7 +57,6 @@ func main() {
 	}
 	log.Info().Msg("connected to MongoDB")
 
-	// Wire up handlers with their MongoDB stores
 	sep12h := sep12.NewHandler(sep12.NewMongoStore(mongoDB))
 	sep24h := sep24.NewHandler(sep24.NewMongoStore(mongoDB), cfg)
 	sep6h := sep6.NewHandler(sep6.NewMongoStore(mongoDB), cfg)
@@ -72,14 +70,15 @@ func main() {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(corsMiddleware)
 
-	// Stellar anchor discovery - Stellar wallets fetch this first
-	r.Get("/.well-known/stellar.toml", toml.Handler(cfg))
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
 
-	// SEP-10: Wallet Authentication
+	r.Get("/.well-known/stellar.toml", toml.Handler(cfg))
 	r.Get("/sep10/auth", sep10.GetChallenge(cfg))
 	r.Post("/sep10/auth", sep10.PostChallenge(cfg))
 
-	// SEP-12: KYC (all protected by SEP-10 JWT)
 	r.Group(func(r chi.Router) {
 		r.Use(jwtMw)
 		r.Get("/sep12/customer", sep12h.GetCustomer)
@@ -87,7 +86,6 @@ func main() {
 		r.Delete("/sep12/customer", sep12h.DeleteCustomer)
 	})
 
-	// SEP-24: Interactive deposit/withdrawal
 	r.Get("/sep24/info", sep24h.Info)
 	r.Group(func(r chi.Router) {
 		r.Use(jwtMw)
@@ -96,7 +94,6 @@ func main() {
 		r.Get("/sep24/transaction", sep24h.GetTransaction)
 	})
 
-	// SEP-6: Programmatic deposit/withdrawal
 	r.Get("/sep6/info", sep6h.Info)
 	r.Group(func(r chi.Router) {
 		r.Use(jwtMw)
@@ -105,7 +102,6 @@ func main() {
 		r.Get("/sep6/transaction", sep6h.GetTransaction)
 	})
 
-	// SEP-31: Cross-border B2B payments
 	r.Get("/sep31/info", sep31h.Info)
 	r.Group(func(r chi.Router) {
 		r.Use(jwtMw)

@@ -19,7 +19,7 @@ RUN apk add --no-cache ca-certificates tzdata && addgroup -S anchor && adduser -
 
 COPY --from=builder /out/stellar-anchor /app/stellar-anchor
 
-EXPOSE 8081
+EXPOSE 8080
 
 USER anchor
 
