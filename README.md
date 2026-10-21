@@ -47,9 +47,9 @@ stellar-anchor/
 Before any protected endpoint will respond, a wallet needs to prove it controls a Stellar keypair. The flow:
 
 1. Wallet calls `GET /sep10/auth?account=G...`
-2. The anchor builds a Stellar transaction with sequence number `0` — it's intentionally invalid on-chain, so it can never be submitted. It signs this with the anchor's signing keypair and returns the base64 XDR.
+2. The anchor builds a Stellar transaction with sequence number `0`, so it can never be submitted on-chain. The first operation is a `<HOME_DOMAIN> auth` manage_data op with the wallet as source, the second carries `web_auth_domain`, and the challenge is valid for 15 minutes. The anchor signs it and returns the base64 XDR.
 3. The wallet signs that same transaction with the customer's private key and posts it back to `POST /sep10/auth`.
-4. The anchor checks both signatures: its own (to prevent replay of a forged challenge) and the customer's (to prove keypair ownership). If both verify, it issues a JWT with the Stellar address as the `sub` claim.
+4. The anchor validates the challenge: its own signature, sequence number, time bounds, home domain and `web_auth_domain`. If the account exists on the network, the wallet's signatures must meet the account's medium threshold using its current signers from Horizon. If the account doesn't exist yet, the master key signature is required. A signed challenge can only be used once. If everything checks out, it issues a JWT with the Stellar address as the `sub` claim.
 5. Every protected endpoint from here on expects `Authorization: Bearer <token>`.
 
 ### Two keypairs
@@ -177,7 +177,7 @@ go test ./internal/sep10/... -run TestPostChallenge_ClientSignatureVerification 
 | Package | What's covered |
 |---------|----------------|
 | `middleware` | Missing header, malformed token, wrong secret, expired token, valid token, context propagation |
-| `sep10` | Challenge structure (op sources, nonce, timebounds), full sign→verify round trip, unsigned rejection, wrong keypair rejection |
+| `sep10` | Challenge structure (op sources, nonce, timebounds), full sign→verify round trip, unsigned and wrong keypair rejection, expired, replayed, wrong home domain and wrong web_auth_domain challenges, master key removed, multisig thresholds, Horizon errors |
 | `sep12` | GET with no record, GET with existing record, PUT validation, idempotent update, DELETE, DB errors |
 | `sep24` | Deposit/withdrawal initiation, unsupported asset rejection, transaction scoped to account, store errors |
 | `sep6` | Deposit with memo uniqueness across concurrent calls, withdrawal dest validation, account-scoped transaction lookup |
