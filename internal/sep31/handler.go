@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"aidmedium/stellar-anchor/internal/config"
+	"aidmedium/stellar-anchor/internal/memo"
 	"aidmedium/stellar-anchor/internal/middleware"
 
 	"github.com/go-chi/chi"
@@ -34,6 +35,8 @@ type Transaction struct {
 	AmountOut             string     `bson:"amount_out,omitempty" json:"amount_out,omitempty"`
 	AmountFee             string     `bson:"amount_fee,omitempty" json:"amount_fee,omitempty"`
 	StellarTxHash         string     `bson:"stellar_tx_hash,omitempty" json:"stellar_transaction_id,omitempty"`
+	StellarMemo           string     `bson:"stellar_memo"   json:"stellar_memo"`
+	StellarMemoType       string     `bson:"stellar_memo_type" json:"stellar_memo_type"`
 	StartedAt             time.Time  `bson:"started_at"     json:"started_at"`
 	CompletedAt           *time.Time `bson:"completed_at,omitempty" json:"completed_at,omitempty"`
 	ReceiverAccountNumber string     `bson:"receiver_account_number,omitempty" json:"-"`
@@ -56,7 +59,6 @@ func (h *Handler) Info(w http.ResponseWriter, r *http.Request) {
 		"receive": map[string]any{
 			"USDC": map[string]any{
 				"enabled": true, "min_amount": 1, "max_amount": 50000,
-				"fee_fixed": 1.0, "fee_percent": 0.5,
 				"sep12": map[string]any{
 					"sender":   map[string]any{"types": map[string]any{"sep12-sender": map[string]string{"description": "Sending institution KYC"}}},
 					"receiver": map[string]any{"types": map[string]any{"sep12-receiver": map[string]string{"description": "Receiver KYC (NGN payout)"}}},
@@ -101,9 +103,17 @@ func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	memoID, err := memo.NewID()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to create memo")
+		return
+	}
+
 	tx := &Transaction{
 		ID:                    uuid.New().String(),
 		Status:                StatusPendingReceiver,
+		StellarMemo:           memoID,
+		StellarMemoType:       memo.Type,
 		StellarAccountID:      account,
 		AssetCode:             body.AssetCode,
 		AssetIssuer:           body.AssetIssuer,
@@ -124,8 +134,8 @@ func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{
 		"id":                 tx.ID,
 		"stellar_account_id": h.cfg.DistributionKey,
-		"stellar_memo_type":  "hash",
-		"stellar_memo":       tx.ID[:32],
+		"stellar_memo_type":  tx.StellarMemoType,
+		"stellar_memo":       tx.StellarMemo,
 	})
 }
 

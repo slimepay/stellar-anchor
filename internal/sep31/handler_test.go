@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"aidmedium/stellar-anchor/internal/config"
@@ -155,7 +156,7 @@ func TestCreateTransaction_Success(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.NotEmpty(t, resp["id"])
 	assert.Equal(t, testConfig().DistributionKey, resp["stellar_account_id"])
-	assert.Equal(t, "hash", resp["stellar_memo_type"])
+	assert.Equal(t, "id", resp["stellar_memo_type"])
 	assert.NotEmpty(t, resp["stellar_memo"])
 
 	// Verify persistence
@@ -168,7 +169,7 @@ func TestCreateTransaction_Success(t *testing.T) {
 	assert.Equal(t, testAccount, tx.StellarAccountID)
 }
 
-func TestCreateTransaction_StellarMemoMax32Chars(t *testing.T) {
+func TestCreateTransaction_StellarMemoIsMemoID(t *testing.T) {
 	store := newMock()
 	h := sep31.NewHandler(store, testConfig())
 	body, _ := json.Marshal(map[string]string{
@@ -184,7 +185,12 @@ func TestCreateTransaction_StellarMemoMax32Chars(t *testing.T) {
 	var resp map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	memo := resp["stellar_memo"].(string)
-	assert.LessOrEqual(t, len(memo), 32, "Stellar hash memo must be ≤ 32 chars")
+	_, err := strconv.ParseUint(memo, 10, 64)
+	assert.NoError(t, err, "stellar_memo must be a 64 bit memo ID")
+
+	tx := store.records[resp["id"].(string)]
+	require.NotNil(t, tx)
+	assert.Equal(t, memo, tx.StellarMemo, "memo must be stored to match the incoming payment")
 }
 
 func TestCreateTransaction_StoreError(t *testing.T) {

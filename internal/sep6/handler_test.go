@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"aidmedium/stellar-anchor/internal/config"
@@ -64,105 +65,41 @@ func TestInfo(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Contains(t, body, "deposit")
-	assert.Contains(t, body, "withdraw")
-	deposit := body["deposit"].(map[string]any)
-	assert.Contains(t, deposit, "USDC")
-	assert.Contains(t, deposit, "XLM")
 
-	usdc := deposit["USDC"].(map[string]any)
+	assert.Empty(t, body["deposit"].(map[string]any))
+
+	withdraw := body["withdraw"].(map[string]any)
+	usdc := withdraw["USDC"].(map[string]any)
 	assert.Equal(t, true, usdc["enabled"])
 	assert.Equal(t, true, usdc["authentication_required"])
 }
 
-func TestDeposit_NoAuth(t *testing.T) {
-	h := sep6.NewHandler(newMock(), testConfig())
-	req := httptest.NewRequest(http.MethodGet, "/sep6/deposit?asset_code=USDC", nil)
-	w := httptest.NewRecorder()
-	h.Deposit(w, req)
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestDeposit_UnsupportedAsset(t *testing.T) {
-	h := sep6.NewHandler(newMock(), testConfig())
-	req := withAccount(httptest.NewRequest(http.MethodGet, "/sep6/deposit?asset_code=ETH", nil), testAccount)
-	w := httptest.NewRecorder()
-	h.Deposit(w, req)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestDeposit_USDC_Success(t *testing.T) {
-	store := newMock()
-	h := sep6.NewHandler(store, testConfig())
-	req := withAccount(httptest.NewRequest(http.MethodGet, "/sep6/deposit?asset_code=USDC", nil), testAccount)
-	w := httptest.NewRecorder()
-	h.Deposit(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-	var resp map[string]any
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.NotEmpty(t, resp["id"])
-	assert.NotEmpty(t, resp["deposit_address"])
-	assert.NotEmpty(t, resp["memo"])
-	assert.Equal(t, "text", resp["memo_type"])
-	assert.Contains(t, resp["memo"].(string), "DEP")
-
-	// Verify persisted
-	id := resp["id"].(string)
-	tx, ok := store.records[id]
-	require.True(t, ok)
-	assert.Equal(t, "deposit", tx.Kind)
-	assert.Equal(t, "USDC", tx.AssetCode)
-	assert.Equal(t, testConfig().DistributionKey, tx.DepositAddress)
-	assert.Equal(t, testAccount, tx.StellarAccount)
-}
-
-func TestDeposit_XLM_Success(t *testing.T) {
-	store := newMock()
-	h := sep6.NewHandler(store, testConfig())
-	req := withAccount(httptest.NewRequest(http.MethodGet, "/sep6/deposit?asset_code=XLM", nil), testAccount)
-	w := httptest.NewRecorder()
-	h.Deposit(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-	var resp map[string]any
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	id := resp["id"].(string)
-	tx := store.records[id]
-	require.NotNil(t, tx)
-	assert.Equal(t, "XLM", tx.AssetCode)
-}
-
-func TestDeposit_MemoUnique(t *testing.T) {
-	store := newMock()
-	h := sep6.NewHandler(store, testConfig())
-
-	var memos []string
-	for i := 0; i < 5; i++ {
-		req := withAccount(httptest.NewRequest(http.MethodGet, "/sep6/deposit?asset_code=USDC", nil), testAccount)
-		w := httptest.NewRecorder()
-		h.Deposit(w, req)
-		require.Equal(t, http.StatusOK, w.Code)
-		var resp map[string]any
-		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-		memos = append(memos, resp["memo"].(string))
-	}
-	// All memos must be distinct
-	seen := make(map[string]bool)
-	for _, m := range memos {
-		assert.False(t, seen[m], "memo collision detected: %s", m)
-		seen[m] = true
-	}
-}
-
-func TestDeposit_StoreError(t *testing.T) {
+func TestWithdraw_StoreError(t *testing.T) {
 	store := newMock()
 	store.failNext = errors.New("db unavailable")
 	h := sep6.NewHandler(store, testConfig())
-	req := withAccount(httptest.NewRequest(http.MethodGet, "/sep6/deposit?asset_code=USDC", nil), testAccount)
+	req := withAccount(httptest.NewRequest(http.MethodGet, "/sep6/withdraw?asset_code=USDC&dest=1234567890", nil), testAccount)
 	w := httptest.NewRecorder()
-	h.Deposit(w, req)
+	h.Withdraw(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestWithdraw_MemoUnique(t *testing.T) {
+	store := newMock()
+	h := sep6.NewHandler(store, testConfig())
+	seen := map[string]bool{}
+	for i := 0; i < 20; i++ {
+		req := withAccount(httptest.NewRequest(http.MethodGet, "/sep6/withdraw?asset_code=USDC&dest=1234567890", nil), testAccount)
+		w := httptest.NewRecorder()
+		h.Withdraw(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
+
+		var resp map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+		m := resp["memo"].(string)
+		assert.False(t, seen[m], "memo collision detected: %s", m)
+		seen[m] = true
+	}
 }
 
 func TestWithdraw_NoAuth(t *testing.T) {
@@ -204,7 +141,10 @@ func TestWithdraw_Success(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.NotEmpty(t, resp["id"])
 	assert.Equal(t, testConfig().DistributionKey, resp["account_id"])
-	assert.Contains(t, resp["memo"].(string), "WD")
+	assert.Equal(t, "id", resp["memo_type"])
+	_, err := strconv.ParseUint(resp["memo"].(string), 10, 64)
+	assert.NoError(t, err, "memo must be a 64 bit memo ID")
+	assert.NotContains(t, resp, "fee_fixed")
 
 	id := resp["id"].(string)
 	tx := store.records[id]

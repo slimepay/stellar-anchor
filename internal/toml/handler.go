@@ -7,8 +7,10 @@ import (
 	"aidmedium/stellar-anchor/internal/config"
 )
 
-// Handler serves /.well-known/stellar.toml — the anchor discovery file.
+// Handler serves /.well-known/stellar.toml, the anchor discovery file.
 // Stellar wallets, SEP validators, and other anchors fetch this first.
+// It must be reachable on HOME_DOMAIN. SEP endpoints point at WEB_AUTH_DOMAIN
+// because wallets check that host against web_auth_domain in SEP-10 challenges.
 func Handler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -16,8 +18,10 @@ func Handler(cfg *config.Config) http.HandlerFunc {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
 		network := "testnet"
+		status := "test"
 		if cfg.Env == "mainnet" {
 			network = "mainnet"
+			status = "live"
 		}
 
 		toml := fmt.Sprintf(`# Slimepay Stellar Anchor
@@ -38,7 +42,7 @@ DIRECT_PAYMENT_SERVER="https://%s/sep31"
 [[CURRENCIES]]
 code="USDC"
 issuer="%s"
-status="live"
+status="%s"
 is_asset_anchored=true
 anchor_asset_type="fiat"
 anchor_asset="USD"
@@ -47,7 +51,7 @@ display_decimals=2
 
 [[CURRENCIES]]
 code="XLM"
-status="live"
+status="%s"
 is_asset_anchored=false
 desc="Stellar Lumens"
 display_decimals=7
@@ -55,7 +59,7 @@ display_decimals=7
 [DOCUMENTATION]
 ORG_NAME="Slimepay"
 ORG_URL="https://%s"
-ORG_DESCRIPTION="Slimepay Stellar Anchor — NGN settlement via USDC and XLM"
+ORG_DESCRIPTION="Slimepay Stellar Anchor: USDC and XLM withdrawals to Nigerian bank accounts"
 ORG_TWITTER="@slimepay"
 
 # Environment: %s
@@ -65,12 +69,14 @@ ORG_TWITTER="@slimepay"
 			cfg.HorizonURL,
 			cfg.DistributionKey,
 			cfg.AnchorSigningKey,
-			cfg.HomeDomain,
-			cfg.HomeDomain,
-			cfg.HomeDomain,
-			cfg.HomeDomain,
-			cfg.HomeDomain,
+			cfg.WebAuthDomain,
+			cfg.WebAuthDomain,
+			cfg.WebAuthDomain,
+			cfg.WebAuthDomain,
+			cfg.WebAuthDomain,
 			cfg.USDCIssuer,
+			status,
+			status,
 			cfg.HomeDomain,
 			network,
 		)

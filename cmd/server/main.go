@@ -95,7 +95,6 @@ func main() {
 	r.Get("/sep24/info", sep24h.Info)
 	r.Group(func(r chi.Router) {
 		r.Use(jwtMw)
-		r.Post("/sep24/transactions/deposit/interactive", sep24h.InitiateDeposit)
 		r.Post("/sep24/transactions/withdraw/interactive", sep24h.InitiateWithdraw)
 		r.Get("/sep24/transaction", sep24h.GetTransaction)
 	})
@@ -103,7 +102,6 @@ func main() {
 	r.Get("/sep6/info", sep6h.Info)
 	r.Group(func(r chi.Router) {
 		r.Use(jwtMw)
-		r.Get("/sep6/deposit", sep6h.Deposit)
 		r.Get("/sep6/withdraw", sep6h.Withdraw)
 		r.Get("/sep6/transaction", sep6h.GetTransaction)
 	})

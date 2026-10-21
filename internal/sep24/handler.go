@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"aidmedium/stellar-anchor/internal/config"
+	"aidmedium/stellar-anchor/internal/memo"
 	"aidmedium/stellar-anchor/internal/middleware"
 
 	"github.com/google/uuid"
@@ -33,10 +34,13 @@ type Transaction struct {
 	AmountIn       string     `bson:"amount_in,omitempty"    json:"amount_in,omitempty"`
 	AmountOut      string     `bson:"amount_out,omitempty"   json:"amount_out,omitempty"`
 	AmountFee      string     `bson:"amount_fee,omitempty"   json:"amount_fee,omitempty"`
-	DepositAddress string     `bson:"deposit_address,omitempty" json:"deposit_address,omitempty"`
 	StellarTxHash  string     `bson:"stellar_tx_hash,omitempty" json:"stellar_transaction_id,omitempty"`
 	StartedAt      time.Time  `bson:"started_at"  json:"started_at"`
 	CompletedAt    *time.Time `bson:"completed_at,omitempty" json:"completed_at,omitempty"`
+
+	WithdrawAnchorAccount string `bson:"withdraw_anchor_account,omitempty" json:"withdraw_anchor_account,omitempty"`
+	WithdrawMemo          string `bson:"withdraw_memo,omitempty"           json:"withdraw_memo,omitempty"`
+	WithdrawMemoType      string `bson:"withdraw_memo_type,omitempty"      json:"withdraw_memo_type,omitempty"`
 }
 
 type Handler struct {
@@ -50,59 +54,15 @@ func NewHandler(store Store, cfg *config.Config) *Handler {
 
 func (h *Handler) Info(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	// USDC or XLM in, naira out: withdrawals only.
 	json.NewEncoder(w).Encode(map[string]any{
-		"deposit": map[string]any{
-			"USDC": map[string]any{"enabled": true, "authentication_required": true, "min_amount": 1, "max_amount": 50000, "fee_fixed": 0.50, "fee_percent": 0.5},
-			"XLM":  map[string]any{"enabled": true, "authentication_required": true, "min_amount": 1, "max_amount": 100000, "fee_fixed": 0.01, "fee_percent": 0.1},
-		},
+		"deposit": map[string]any{},
 		"withdraw": map[string]any{
-			"USDC": map[string]any{"enabled": true, "authentication_required": true, "min_amount": 5, "max_amount": 50000, "fee_fixed": 1.0, "fee_percent": 0.5},
+			"USDC": map[string]any{"enabled": true, "min_amount": 5, "max_amount": 50000},
+			"XLM":  map[string]any{"enabled": true, "min_amount": 5, "max_amount": 100000},
 		},
 		"transaction":  map[string]any{"enabled": true},
 		"transactions": map[string]any{"enabled": true},
-	})
-}
-
-func (h *Handler) InitiateDeposit(w http.ResponseWriter, r *http.Request) {
-	account := middleware.StellarAccountFromContext(r.Context())
-	if account == "" {
-		writeErr(w, http.StatusUnauthorized, "SEP-10 authentication required")
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid form data")
-		return
-	}
-	assetCode := r.FormValue("asset_code")
-	if assetCode != "USDC" && assetCode != "XLM" {
-		writeErr(w, http.StatusBadRequest, "unsupported asset_code; supported: USDC, XLM")
-		return
-	}
-
-	assetIssuer := ""
-	if assetCode == "USDC" {
-		assetIssuer = h.cfg.USDCIssuer
-	}
-
-	tx := &Transaction{
-		ID:             uuid.New().String(),
-		Kind:           "deposit",
-		Status:         TxPendingUserTransfer,
-		StellarAccount: account,
-		AssetCode:      assetCode,
-		AssetIssuer:    assetIssuer,
-		StartedAt:      time.Now().UTC(),
-	}
-	if err := h.store.Insert(r.Context(), tx); err != nil {
-		writeErr(w, http.StatusInternalServerError, "failed to create transaction")
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"type": "interactive_customer_info_needed",
-		"url":  fmt.Sprintf("https://%s/anchor/deposit?id=%s", h.cfg.HomeDomain, tx.ID),
-		"id":   tx.ID,
 	})
 }
 
@@ -122,13 +82,28 @@ func (h *Handler) InitiateWithdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	memoID, err := memo.NewID()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to create memo")
+		return
+	}
+
+	assetIssuer := ""
+	if assetCode == "USDC" {
+		assetIssuer = h.cfg.USDCIssuer
+	}
+
 	tx := &Transaction{
-		ID:             uuid.New().String(),
-		Kind:           "withdrawal",
-		Status:         TxPendingUserTransfer,
-		StellarAccount: account,
-		AssetCode:      assetCode,
-		StartedAt:      time.Now().UTC(),
+		ID:                    uuid.New().String(),
+		Kind:                  "withdrawal",
+		Status:                TxPendingUserTransfer,
+		StellarAccount:        account,
+		AssetCode:             assetCode,
+		AssetIssuer:           assetIssuer,
+		WithdrawAnchorAccount: h.cfg.DistributionKey,
+		WithdrawMemo:          memoID,
+		WithdrawMemoType:      memo.Type,
+		StartedAt:             time.Now().UTC(),
 	}
 	if err := h.store.Insert(r.Context(), tx); err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to create transaction")

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"aidmedium/stellar-anchor/internal/config"
@@ -66,71 +67,50 @@ func TestInfo(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Contains(t, body, "deposit")
-	assert.Contains(t, body, "withdraw")
-	deposit := body["deposit"].(map[string]any)
-	assert.Contains(t, deposit, "USDC")
-	assert.Contains(t, deposit, "XLM")
+
+	assert.Empty(t, body["deposit"].(map[string]any))
+
+	withdraw := body["withdraw"].(map[string]any)
+	assert.Contains(t, withdraw, "USDC")
+	assert.Contains(t, withdraw, "XLM")
+	usdc := withdraw["USDC"].(map[string]any)
+	assert.Equal(t, true, usdc["enabled"])
+	assert.NotContains(t, usdc, "fee_fixed")
+	assert.NotContains(t, usdc, "fee_percent")
 }
 
-func TestInitiateDeposit_NoAuth(t *testing.T) {
+func TestInitiateWithdraw_NoAuth(t *testing.T) {
 	h := sep24.NewHandler(newMock(), testConfig())
-	req := httptest.NewRequest(http.MethodPost, "/sep24/transactions/deposit/interactive",
+	req := httptest.NewRequest(http.MethodPost, "/sep24/transactions/withdraw/interactive",
 		bytes.NewBufferString("asset_code=USDC"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
-	h.InitiateDeposit(w, req)
+	h.InitiateWithdraw(w, req)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestInitiateDeposit_UnsupportedAsset(t *testing.T) {
+func TestInitiateWithdraw_UnsupportedAsset(t *testing.T) {
 	h := sep24.NewHandler(newMock(), testConfig())
-	req := withAccount(httptest.NewRequest(http.MethodPost, "/sep24/transactions/deposit/interactive",
+	req := withAccount(httptest.NewRequest(http.MethodPost, "/sep24/transactions/withdraw/interactive",
 		bytes.NewBufferString("asset_code=BTC")), testAccount)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
-	h.InitiateDeposit(w, req)
+	h.InitiateWithdraw(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestInitiateDeposit_USDC(t *testing.T) {
+func TestInitiateWithdraw_XLM(t *testing.T) {
 	store := newMock()
 	h := sep24.NewHandler(store, testConfig())
-	req := withAccount(httptest.NewRequest(http.MethodPost, "/sep24/transactions/deposit/interactive",
-		bytes.NewBufferString("asset_code=USDC")), testAccount)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
-	h.InitiateDeposit(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-	var resp map[string]string
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Equal(t, "interactive_customer_info_needed", resp["type"])
-	assert.NotEmpty(t, resp["id"])
-	assert.Contains(t, resp["url"], resp["id"])
-
-	// Verify record was stored
-	tx, ok := store.records[resp["id"]]
-	require.True(t, ok, "transaction must be persisted in the store")
-	assert.Equal(t, "deposit", tx.Kind)
-	assert.Equal(t, "USDC", tx.AssetCode)
-	assert.Equal(t, testAccount, tx.StellarAccount)
-	assert.Equal(t, sep24.TxPendingUserTransfer, tx.Status)
-}
-
-func TestInitiateDeposit_XLM(t *testing.T) {
-	store := newMock()
-	h := sep24.NewHandler(store, testConfig())
-	req := withAccount(httptest.NewRequest(http.MethodPost, "/sep24/transactions/deposit/interactive",
+	req := withAccount(httptest.NewRequest(http.MethodPost, "/sep24/transactions/withdraw/interactive",
 		bytes.NewBufferString("asset_code=XLM")), testAccount)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
-	h.InitiateDeposit(w, req)
+	h.InitiateWithdraw(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]string
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.NotEmpty(t, resp["id"])
 
 	tx := store.records[resp["id"]]
 	require.NotNil(t, tx)
@@ -138,16 +118,38 @@ func TestInitiateDeposit_XLM(t *testing.T) {
 	assert.Empty(t, tx.AssetIssuer, "XLM has no issuer")
 }
 
-func TestInitiateDeposit_StoreError(t *testing.T) {
+func TestInitiateWithdraw_StoreError(t *testing.T) {
 	store := newMock()
-	store.failNext = errors.New("insert failed")
+	store.failNext = errors.New("db unavailable")
 	h := sep24.NewHandler(store, testConfig())
-	req := withAccount(httptest.NewRequest(http.MethodPost, "/sep24/transactions/deposit/interactive",
+	req := withAccount(httptest.NewRequest(http.MethodPost, "/sep24/transactions/withdraw/interactive",
 		bytes.NewBufferString("asset_code=USDC")), testAccount)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
-	h.InitiateDeposit(w, req)
+	h.InitiateWithdraw(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestInitiateWithdraw_AssignsMemoID(t *testing.T) {
+	store := newMock()
+	h := sep24.NewHandler(store, testConfig())
+	req := withAccount(httptest.NewRequest(http.MethodPost, "/sep24/transactions/withdraw/interactive",
+		bytes.NewBufferString("asset_code=USDC")), testAccount)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.InitiateWithdraw(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	tx := store.records[resp["id"]]
+	require.NotNil(t, tx)
+
+	assert.Equal(t, "id", tx.WithdrawMemoType)
+	_, err := strconv.ParseUint(tx.WithdrawMemo, 10, 64)
+	assert.NoError(t, err, "withdraw memo must be a 64 bit memo ID")
+	assert.Equal(t, testConfig().DistributionKey, tx.WithdrawAnchorAccount)
+	assert.Equal(t, testConfig().USDCIssuer, tx.AssetIssuer)
 }
 
 func TestInitiateWithdraw_Success(t *testing.T) {

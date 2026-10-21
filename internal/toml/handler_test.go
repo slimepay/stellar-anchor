@@ -3,7 +3,6 @@ package toml_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"aidmedium/stellar-anchor/internal/config"
@@ -101,14 +100,29 @@ func TestHandler_USDCIssuerPresent(t *testing.T) {
 	assert.Contains(t, w.Body.String(), cfg.USDCIssuer)
 }
 
-func TestHandler_HomeDomainInEndpoints(t *testing.T) {
+func TestHandler_EndpointsUseWebAuthDomain(t *testing.T) {
 	cfg := testConfig()
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
 	w := httptest.NewRecorder()
 	toml.Handler(cfg)(w, req)
 	body := w.Body.String()
-	assert.True(t, strings.Contains(body, cfg.HomeDomain),
-		"all SEP endpoint URLs must include the home domain")
+
+	assert.Contains(t, body, `WEB_AUTH_ENDPOINT="https://`+cfg.WebAuthDomain+`/sep10/auth"`)
+	assert.Contains(t, body, `TRANSFER_SERVER_SEP0024="https://`+cfg.WebAuthDomain+`/sep24"`)
+	assert.Contains(t, body, `TRANSFER_SERVER="https://`+cfg.WebAuthDomain+`/sep6"`)
+	assert.Contains(t, body, `KYC_SERVER="https://`+cfg.WebAuthDomain+`/sep12"`)
+	assert.Contains(t, body, `DIRECT_PAYMENT_SERVER="https://`+cfg.WebAuthDomain+`/sep31"`)
+	assert.Contains(t, body, `ORG_URL="https://`+cfg.HomeDomain+`"`)
+}
+
+func TestHandler_TestnetAssetsMarkedTest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
+	w := httptest.NewRecorder()
+	toml.Handler(testConfig())(w, req)
+	body := w.Body.String()
+
+	assert.Contains(t, body, `status="test"`)
+	assert.NotContains(t, body, `status="live"`)
 }
 
 func TestHandler_MainnetConfig(t *testing.T) {
@@ -125,4 +139,5 @@ func TestHandler_MainnetConfig(t *testing.T) {
 	assert.Contains(t, body, "Public Global Stellar Network")
 	assert.Contains(t, body, cfg.USDCIssuer)
 	assert.Contains(t, body, "mainnet")
+	assert.Contains(t, body, `status="live"`)
 }

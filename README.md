@@ -1,8 +1,13 @@
 # stellar-anchor
 
-This is Slimepay's Stellar Anchor — a standalone Go service that implements the Stellar Ecosystem Proposals (SEPs) required to operate a regulated fiat-to-Stellar anchor. It runs independently alongside the main Slimepay backend and bridges customer accounts to the Stellar network, handling wallet authentication, KYC, deposits, withdrawals, and cross-border B2B payments.
+This is Slimepay's Stellar Anchor, a standalone Go service that implements the Stellar Ecosystem Proposals (SEPs) needed to run a regulated fiat anchor. It runs alongside the main Slimepay backend and handles wallet authentication, KYC, withdrawals, and cross-border B2B payments.
 
 This service targets **SEP-10**, **SEP-12**, **SEP-24**, **SEP-6**, and **SEP-31**.
+
+> **Direction of the plan:** Slimepay is moving to the [Stellar Anchor Platform](https://github.com/stellar/anchor-platform) (SAP). SAP will serve the SEP endpoints, and this repo becomes the Business Server behind it: KYC through Dojah, naira payouts through SafeHaven, and transaction status updates. The handlers here are the testnet prototype. See [ARCHITECTURE.md](ARCHITECTURE.md) for the target design and migration plan. All work is on testnet; mainnet is out of scope for SCF funding.
+
+Only **withdrawals** are offered: a user sends USDC or XLM and receives naira in a Nigerian bank account. Deposits (naira in, Stellar asset out) are not supported.
+
 ---
 
 ## What's implemented
@@ -12,8 +17,8 @@ This service targets **SEP-10**, **SEP-12**, **SEP-24**, **SEP-6**, and **SEP-31
 | SEP-1 | `stellar.toml`: the discovery file wallets fetch first |
 | SEP-10 | Web Authentication: proves a wallet owns a keypair |
 | SEP-12 | KYC: collects and stores customer identity information |
-| SEP-24 | Interactive transfers: deposit/withdrawal with a hosted UI flow |
-| SEP-6 | Programmatic transfers: deposit/withdrawal without a browser redirect |
+| SEP-24 | Interactive transfers: withdrawal with a hosted UI flow (the UI is not built yet) |
+| SEP-6 | Programmatic transfers: withdrawal without a browser redirect |
 | SEP-31 | Cross-border B2B payments: USDC in, NGN out |
 
 ---
@@ -30,8 +35,9 @@ stellar-anchor/
 │   ├── toml/handler.go             # Serves /.well-known/stellar.toml
 │   ├── sep10/handler.go            # Challenge generation and signature verification
 │   ├── sep12/{store,handler}.go    # KYC CRUD
-│   ├── sep24/{store,handler}.go    # Interactive deposit/withdrawal
-│   ├── sep6/{store,handler}.go     # Programmatic deposit/withdrawal
+│   ├── memo/memo.go                # Memo IDs in the same format SAP assigns
+│   ├── sep24/{store,handler}.go    # Interactive withdrawal
+│   ├── sep6/{store,handler}.go     # Programmatic withdrawal
 │   └── sep31/{store,handler}.go    # Cross-border B2B payments
 ├── .env.example
 ├── go.mod
@@ -56,8 +62,16 @@ Before any protected endpoint will respond, a wallet needs to prove it controls 
 
 You need two separate Stellar keypairs to run this service:
 
-- **Anchor signing key** — only used to sign SEP-10 challenge transactions. It doesn't hold any funds and doesn't need a minimum balance beyond account activation.
-- **Distribution key** — the funded account that actually receives deposits and sends withdrawals. On mainnet it needs XLM for transaction fees and a USDC trustline.
+- **Anchor signing key**: only used to sign SEP-10 challenge transactions. It doesn't hold any funds and doesn't need a minimum balance beyond account activation.
+- **Distribution key**: the funded account that receives the USDC or XLM users send for withdrawals. It needs XLM for transaction fees and a USDC trustline.
+
+### Memos
+
+Every withdrawal and SEP-31 payment gets a random 64 bit memo ID (`memo_type` `id`), the same format the Anchor Platform assigns. The memo is stored on the transaction so the incoming payment can be matched to it.
+
+### Domains
+
+The SEP endpoints are served from `WEB_AUTH_DOMAIN` (the host this service runs on). Wallets fetch `stellar.toml` from `HOME_DOMAIN`, so that host must serve or proxy `/.well-known/stellar.toml` to this service. `WEB_AUTH_ENDPOINT` in the toml points at `WEB_AUTH_DOMAIN`, which is what wallets check against the `web_auth_domain` in the SEP-10 challenge.
 
 Keeping them separate means a compromised signing key doesn't expose customer funds.
 
@@ -84,7 +98,7 @@ The service writes to a dedicated `stellar_anchor` database.
 
 - Go 1.21+
 - MongoDB 6+ (the same instance the main server uses is fine)
-- Two Stellar keypairs — on testnet you can generate and fund them at [laboratory.stellar.org](https://laboratory.stellar.org/#account-creator?network=test)
+- Two Stellar keypairs. On testnet you can generate and fund them at [laboratory.stellar.org](https://laboratory.stellar.org/#account-creator?network=test)
 
 ### Environment
 
@@ -102,8 +116,8 @@ PORT=8081
 ANCHOR_SIGNING_SEED=SXXX...   # Keypair used only for SEP-10 challenge signing
 DISTRIBUTION_SEED=SXXX...     # Funded account that handles actual transfers
 
-USDC_ISSUER=                  # Leave blank — defaults to the canonical issuer per network
-HORIZON_URL=                  # Leave blank — defaults to the canonical Horizon per network
+USDC_ISSUER=                  # Leave blank to use the default to the canonical issuer per network
+HORIZON_URL=                  # Leave blank to use the default to the canonical Horizon per network
 
 HOME_DOMAIN=slimepay.com
 WEB_AUTH_DOMAIN=anchor.slimepay.com
@@ -147,7 +161,7 @@ go build -o stellar-anchor ./cmd/server
 ./stellar-anchor
 ```
 
-Quick sanity check — fetch the discovery file:
+Quick sanity check, fetch the discovery file:
 
 ```bash
 curl http://localhost:8081/.well-known/stellar.toml
@@ -179,12 +193,13 @@ go test ./internal/sep10/... -run TestPostChallenge_ClientSignatureVerification 
 | `middleware` | Missing header, malformed token, wrong secret, expired token, valid token, context propagation |
 | `sep10` | Challenge structure (op sources, nonce, timebounds), full sign→verify round trip, unsigned and wrong keypair rejection, expired, replayed, wrong home domain and wrong web_auth_domain challenges, master key removed, multisig thresholds, Horizon errors |
 | `sep12` | GET with no record, GET with existing record, PUT validation, idempotent update, DELETE, DB errors |
-| `sep24` | Deposit/withdrawal initiation, unsupported asset rejection, transaction scoped to account, store errors |
-| `sep6` | Deposit with memo uniqueness across concurrent calls, withdrawal dest validation, account-scoped transaction lookup |
-| `sep31` | Receiver field validation, USDC-only enforcement, memo ≤32 chars, cross-border transaction creation and retrieval |
-| `toml` | CORS wildcard, correct content-type, all SEP endpoint keys present, both USDC and XLM declared, mainnet config |
+| `memo` | Memo IDs parse as 64 bit integers and don't collide |
+| `sep24` | Info lists withdrawals only, withdrawal initiation for USDC and XLM, memo ID assignment, unsupported asset rejection, transaction scoped to account, store errors |
+| `sep6` | Info lists withdrawals only, withdrawal dest validation, memo ID format and uniqueness, account-scoped transaction lookup, store errors |
+| `sep31` | Receiver field validation, USDC-only enforcement, memo ID stored on the transaction, cross-border transaction creation and retrieval |
+| `toml` | CORS wildcard, correct content-type, SEP endpoints on the web auth domain, assets marked `test` on testnet, mainnet config |
 
-75 tests total
+87 tests total
 
 ---
 
@@ -198,7 +213,7 @@ Endpoints marked **[auth]** require `Authorization: Bearer <sep10-jwt>`.
 GET /.well-known/stellar.toml
 ```
 
-### SEP-10 — Authentication
+### SEP-10: Authentication
 
 ```
 GET  /sep10/auth?account=G...    # Get challenge transaction
@@ -215,7 +230,7 @@ Response:
 { "token": "<JWT>" }
 ```
 
-### SEP-12 — KYC
+### SEP-12: KYC
 
 ```
 GET    /sep12/customer   [auth]
@@ -225,27 +240,27 @@ DELETE /sep12/customer   [auth]
 
 `PUT` requires `first_name`, `last_name`, `email`. Optional: `id_type`, `id_number`.
 
-### SEP-24 — Interactive Transfers
+### SEP-24: Interactive Transfers
 
 ```
 GET  /sep24/info
-POST /sep24/transactions/deposit/interactive   [auth]   # body: asset_code=USDC (form-encoded)
-POST /sep24/transactions/withdraw/interactive  [auth]
+POST /sep24/transactions/withdraw/interactive  [auth]   # body: asset_code=USDC or XLM (form-encoded)
 GET  /sep24/transaction?id=<tx-id>             [auth]
 ```
 
-### SEP-6 — Programmatic Transfers
+The transaction carries `withdraw_anchor_account` and a `withdraw_memo` (type `id`) the wallet must use when sending the funds.
+
+### SEP-6: Programmatic Transfers
 
 ```
 GET  /sep6/info
-GET  /sep6/deposit?asset_code=USDC             [auth]
 GET  /sep6/withdraw?asset_code=USDC&dest=...   [auth]   # dest = bank account number
 GET  /sep6/transaction?id=<tx-id>              [auth]
 ```
 
-Deposit returns the distribution account address and a unique `DEP`-prefixed memo. The customer must include that memo when sending on-chain so the transfer can be matched to their record.
+Withdraw returns the distribution account address and a memo ID (`memo_type` `id`). The customer must include that memo when sending on-chain so the transfer can be matched to their record.
 
-### SEP-31 — Cross-Border Payments
+### SEP-31: Cross-Border Payments
 
 ```
 GET  /sep31/info
@@ -264,4 +279,4 @@ GET  /sep31/transactions/{id}    [auth]
 }
 ```
 
-Response includes the anchor's `stellar_account_id` (distribution key) and a `stellar_memo` the sending institution must attach to their Stellar payment.
+Response includes the anchor's `stellar_account_id` (distribution key) and a `stellar_memo` (type `id`) the sending institution must attach to their Stellar payment.
