@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"aidmedium/stellar-anchor/internal/config"
 	"aidmedium/stellar-anchor/internal/db"
@@ -20,6 +21,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/stellar/go-stellar-sdk/clients/horizonclient"
 	stellarkeypair "github.com/stellar/go-stellar-sdk/keypair"
 )
 
@@ -62,6 +64,10 @@ func main() {
 	sep6h := sep6.NewHandler(sep6.NewMongoStore(mongoDB), cfg)
 	sep31h := sep31.NewHandler(sep31.NewMongoStore(mongoDB), cfg)
 	jwtMw := middleware.RequireSEP10JWT(cfg)
+	horizonClient := &horizonclient.Client{
+		HorizonURL: cfg.HorizonURL,
+		HTTP:       &http.Client{Timeout: 10 * time.Second},
+	}
 
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
@@ -77,7 +83,7 @@ func main() {
 
 	r.Get("/.well-known/stellar.toml", toml.Handler(cfg))
 	r.Get("/sep10/auth", sep10.GetChallenge(cfg))
-	r.Post("/sep10/auth", sep10.PostChallenge(cfg))
+	r.Post("/sep10/auth", sep10.PostChallenge(cfg, horizonClient))
 
 	r.Group(func(r chi.Router) {
 		r.Use(jwtMw)
