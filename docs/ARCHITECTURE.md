@@ -4,7 +4,6 @@ This document describes how Slimepay runs its Stellar anchor and how this reposi
 
 ## Scope
 
-- **Testnet only.** All SCF tranches are delivered on Stellar testnet. No real funds move. Any mainnet launch is self funded and outside SCF scope.
 - **Withdrawals only.** A user sends USDC or XLM on Stellar and receives naira in a Nigerian bank account. In SEP terms that is a withdrawal. Slimepay does not offer deposits (naira in, Stellar asset out).
 - **Flows:** SEP-24 (interactive withdrawal from a wallet), SEP-6 (programmatic withdrawal), SEP-31 (B2B: a partner sends USDC, the recipient gets naira), with SEP-10 for auth, SEP-12 for KYC and SEP-38 for firm quotes.
 

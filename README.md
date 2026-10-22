@@ -4,7 +4,7 @@ This is Slimepay's Stellar Anchor, a standalone Go service that implements the S
 
 This service targets **SEP-10**, **SEP-12**, **SEP-24**, **SEP-6**, and **SEP-31**.
 
-> **Direction of the plan:** Slimepay is moving to the [Stellar Anchor Platform](https://github.com/stellar/anchor-platform) (SAP). SAP will serve the SEP endpoints, and this repo becomes the Business Server behind it: KYC through Dojah, naira payouts through SafeHaven, and transaction status updates. The handlers here are the testnet prototype. See [ARCHITECTURE.md](ARCHITECTURE.md) for the target design and migration plan. All work is on testnet; mainnet is out of scope for SCF funding.
+> **Direction of the plan:** Slimepay is moving to the [Stellar Anchor Platform](https://github.com/stellar/anchor-platform) (SAP). SAP will serve the SEP endpoints, and this repo becomes the Business Server behind it: KYC through Dojah, naira payouts through SafeHaven, and transaction status updates. The handlers here are the testnet prototype. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target design and migration plan, and [TRANCHE1_UPDATES.md](docs/TRANCHE1_UPDATES.md) for the fixes made so far.
 
 Only **withdrawals** are offered: a user sends USDC or XLM and receives naira in a Nigerian bank account. Deposits (naira in, Stellar asset out) are not supported.
 
@@ -39,6 +39,9 @@ stellar-anchor/
 │   ├── sep24/{store,handler}.go    # Interactive withdrawal
 │   ├── sep6/{store,handler}.go     # Programmatic withdrawal
 │   └── sep31/{store,handler}.go    # Cross-border B2B payments
+├── docs/
+│   ├── ARCHITECTURE.md             # Target design: SAP + Business Server
+│   └── TRANCHE1_UPDATES.md         # Tranche 1 highlights
 ├── .env.example
 ├── go.mod
 └── go.sum
