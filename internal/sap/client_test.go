@@ -84,6 +84,8 @@ func TestListTransactions(t *testing.T) {
 	assert.Equal(t, "24", got.Params["sep"])
 	assert.Equal(t, []any{"pending_anchor"}, got.Params["statuses"])
 	assert.Equal(t, float64(50), got.Params["page_size"])
+	assert.Equal(t, "CREATED_AT", got.Params["order_by"])
+	assert.Equal(t, "ASC", got.Params["order"])
 }
 
 func TestRequestOnchainFunds(t *testing.T) {

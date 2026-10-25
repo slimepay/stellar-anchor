@@ -206,14 +206,19 @@ func (c *Client) GetTransaction(ctx context.Context, id string) (*Transaction, e
 	return &tx, nil
 }
 
-// ListTransactions returns one page of transactions for a SEP in the given statuses.
+// ListTransactions returns one page of transactions for a SEP in the given
+// statuses, oldest first. SAP's JSON-RPC get_transactions has no defaults for
+// order_by and order (unlike its REST endpoint) and fails with -32603 when
+// they are missing, and it reads both as Java enum names.
 func (c *Client) ListTransactions(ctx context.Context, sep string, statuses []string, page, pageSize int) ([]Transaction, error) {
 	params := struct {
 		Sep        string   `json:"sep"`
+		OrderBy    string   `json:"order_by"`
+		Order      string   `json:"order"`
 		Statuses   []string `json:"statuses,omitempty"`
 		PageNumber int      `json:"page_number"`
 		PageSize   int      `json:"page_size"`
-	}{sep, statuses, page, pageSize}
+	}{sep, "CREATED_AT", "ASC", statuses, page, pageSize}
 
 	var out struct {
 		Records []Transaction `json:"records"`
