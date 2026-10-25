@@ -11,7 +11,7 @@ The anchor runs on the [Stellar Anchor Platform](https://github.com/stellar/anch
 
 Only withdrawals are offered. The anchor runs on **testnet** during the SCF tranches.
 
-See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design, [TRANCHE1_UPDATES.md](docs/TRANCHE1_UPDATES.md) for what changed in Tranche 1, and [TESTNET_RUNBOOK.md](docs/TESTNET_RUNBOOK.md) to deploy and verify it.
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design, [TRANCHE1_UPDATES.md](docs/TRANCHE1_UPDATES.md) for what changed in Tranche 1, [TRANCHE1_EVIDENCE.md](docs/TRANCHE1_EVIDENCE.md) for the Validation Suite report and completed testnet withdrawals, and [TESTNET_RUNBOOK.md](docs/TESTNET_RUNBOOK.md) to deploy and verify it.
 
 ---
 
@@ -31,9 +31,11 @@ Anything that does not add up puts the transaction on hold (`notify_transaction_
 
 Core keys every payout on the SAP transaction ID, with a unique index, and claims it with a conditional update before calling SafeHaven. Calling it again, at the same time or after a crash, returns the same payout and never sends money twice. If SafeHaven does not answer, the payout is held for someone to check rather than retried.
 
-### Testnet and mainnet
+### Network
 
-`STELLAR_NETWORK` on the Business Server and `ANCHOR_NETWORK` on core select `testnet` (the default) or `mainnet`. Mainnet uses Dojah and the SafeHaven credentials already configured on core. The Business Server sends its network with every payout, and core refuses a payout for the other network, so testnet and mainnet withdrawals never cross.
+The SCF deliverables run on **testnet**, the default. On testnet the Business Server accepts customers without calling Dojah, and core's test bank resolves accounts and settles payouts without moving real naira.
+
+`STELLAR_NETWORK` on the Business Server and `ANCHOR_NETWORK` on core select the network. Every payout carries its network and core refuses one for a different network, so testnet withdrawals can never reach the production payout path. Mainnet (Dojah plus SafeHaven) is outside the SCF tranches.
 
 ---
 

@@ -1,0 +1,17 @@
+{
+  "12": {
+    "customers": {
+      "toBeCreated": { "first_name": "John", "last_name": "Doe", "email_address": "john@example.com", "birth_date": "1990-01-01", "id_type": "bvn", "id_number": "22222222222", "bank_account_number": "0123456789", "bank_number": "000013" },
+      "sendingClient": { "first_name": "John", "last_name": "Doe", "email_address": "john@example.com", "birth_date": "1990-01-01", "id_type": "bvn", "id_number": "22222222222", "bank_account_number": "0123456789", "bank_number": "000013" },
+      "receivingClient": { "first_name": "Jane", "last_name": "Doe", "email_address": "jane@example.com", "birth_date": "1990-01-01", "id_type": "bvn", "id_number": "22222222222", "bank_account_number": "0123456789", "bank_number": "000013" },
+      "toBeDeleted": { "first_name": "Jim", "last_name": "Doe", "email_address": "jim@example.com", "birth_date": "1990-01-01", "id_type": "bvn", "id_number": "22222222222", "bank_account_number": "0123456789", "bank_number": "000013" }
+    },
+    "createCustomer": "toBeCreated",
+    "deleteCustomer": "toBeDeleted",
+    "sameAccountDifferentMemos": ["sendingClient", "receivingClient"]
+  },
+  "6": {
+    "deposit": { "transactionFields": {} },
+    "withdraw": { "types": { "bank_account": { "transactionFields": {} } } }
+  }
+}

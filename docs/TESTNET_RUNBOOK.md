@@ -119,7 +119,7 @@ Wallets must send the SEP-24 withdraw request as JSON or multipart form data. SA
 ## 6. Anchor Validation Suite
 
 ```bash
-npx -y @stellar/anchor-tests --home-domain https://slimepay.com --seps 1 10 12 6 24 --sep-config sep-config.json
+npx -y @stellar/anchor-tests@0.6.22 --home-domain https://slimepay.com --asset-code USDC --seps 1 10 12 6 24 --sep-config sep-config.json
 ```
 
 `sep-config.json` gives the suite SEP-12 customers:

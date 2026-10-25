@@ -15,12 +15,13 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 |---|---|
 | SEP-1, 10, 12, 24, 6, 31, 38 endpoints | SAP SEP server |
 | Transaction records and status machine | SAP platform server (Postgres) |
+| Customers (encrypted), withdrawal ledger, reconciliation results, audit log | Business Server (MongoDB) |
 | Watching the distribution account for incoming payments | SAP payment observer |
 | Memo assignment for incoming payments | SAP (`deposit_info_generator_type: self`, random 64 bit memo IDs) |
-| KYC data and checks | Business Server (this repo), calling Dojah |
+| KYC data and checks | Business Server (this repo). Calls Dojah when `STELLAR_NETWORK=mainnet`; on testnet customers are accepted without a Dojah call, so no real identity data is needed |
 | Quotes and fees | Business Server. Tranche 1 uses a configured naira rate with no fee; SEP-38 firm quotes come in Tranche 2 |
 | Interactive withdrawal UI | Business Server page at `/sep24/interactive` (Tranche 1); the full UI with quote acceptance is Tranche 2 |
-| Naira payout | Slimepay core backend, through SafeHaven |
+| Naira payout | Slimepay core backend. With `ANCHOR_NETWORK=mainnet` it pays through SafeHaven; on testnet core's test bank resolves and settles payouts without moving real naira |
 | Reconciliation | Business Server |
 
 ### Components
@@ -35,11 +36,11 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
    | callbacks           |      | Platform API (JSON-RPC)
    | (/customer, /rate)  |      |
    v                     |      v
- Business Server (this repo, Go)
+ Business Server (this repo, Go) ---- MongoDB
    |            |
    | Dojah      | core API
    v            v
- KYC         Slimepay core backend --> SafeHaven (NGN payout)
+ KYC         Slimepay core backend --> SafeHaven (NGN payout, mainnet)
 
  SAP payment observer --> watches the distribution account on Horizon
 ```
@@ -74,7 +75,7 @@ A mismatch is recorded on the withdrawal and alerted once. The same job walks ev
 
 Sized for a five person team at current volume:
 
-- Railway, next to the existing Slimepay services: SAP (SEP server, platform server and payment observer) at `anchor.slimepay.com`, Postgres for SAP, and the Business Server. They talk over Railway's private network. Only the SEP server and the Business Server's interactive page are public; the Platform API stays private and the callback API requires SAP's token.
+- Railway, next to the existing Slimepay services: SAP (SEP server, platform server and payment observer) at `anchor.slimepay.com`, Postgres for SAP, the Business Server, and MongoDB for the Business Server. They talk over Railway's private network. Only the SEP server and the Business Server's interactive page are public; the Platform API stays private and the callback API requires SAP's token.
 - `deploy/` holds the same stack as a Docker Compose file for a single VM, with Caddy for TLS.
 - SAP events stay disabled at first. The Business Server polls the Platform API for transactions that need action. A queue (Kafka or SQS) is only added if polling stops being enough.
 - Logs and alerts go to the existing Slimepay monitoring. No separate observability stack.

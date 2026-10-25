@@ -1,0 +1,619 @@
+√ SEP-1 » TOML Tests » the TOML file exists at ./well-known/stellar.toml
+√ SEP-1 » TOML Tests » the file has a size less than 100KB
+√ SEP-1 » TOML Tests » has a valid network passphrase
+√ SEP-1 » TOML Tests » has a valid CURRENCIES section
+√ SEP-1 » TOML Tests » all URLs are HTTPS and end without slashes
+√ SEP-10 » TOML Tests » has a valid WEB_AUTH_ENDPOINT in the TOML file
+√ SEP-10 » TOML Tests » has valid SIGNING_KEY
+√ SEP-10 » GET /auth » returns a valid GET /auth response
+√ SEP-10 » GET /auth » rejects requests with no 'account' parameter
+√ SEP-10 » GET /auth » rejects requests with an invalid 'account' parameter
+√ SEP-10 » POST /auth » returns a valid JWT
+√ SEP-10 » POST /auth » accepts JSON requests
+√ SEP-10 » POST /auth » fails with no 'transaction' key in the body
+√ SEP-10 » POST /auth » fails if the challenge is not signed by the client
+√ SEP-10 » POST /auth » fails if the 'transaction' value is invalid
+√ SEP-10 » POST /auth » fails if the challenge is not signed by SIGNING_KEY
+√ SEP-10 » POST /auth » fails if a challenge for a nonexistent account has extra client signatures
+√ SEP-10 » Account Signer Support » fails if the challenge signature weight is less than the account's medium threshold
+√ SEP-10 » Account Signer Support » succeeds with a signature from a non-master signer
+√ SEP-10 » Account Signer Support » fails for challenges signed more than once by the same signer
+√ SEP-10 » Account Signer Support » returns a token for challenges with sufficient signatures from multiple non-master signers
+√ SEP-12 » TOML Tests » has KYC_SERVER attribute
+√ SEP-12 » PUT /customer » requires a SEP-10 JWT
+√ SEP-12 » PUT /customer » can create a customer
+√ SEP-12 » PUT /customer » memos differentiate customers registered by the same account
+√ SEP-12 » GET /customer » requires a SEP-10 JWT
+√ SEP-12 » GET /customer » has a valid schema for a new customer
+√ SEP-12 » GET /customer » can retrieve customer using 'id'
+√ SEP-12 » GET /customer » can retrieve customer using SEP-10 token
+√ SEP-12 » DELETE /customer » requires a SEP-10 JWT
+√ SEP-12 » DELETE /customer » can delete a customer
+√ SEP-6 » TOML tests » has a valid transfer server URL
+√ SEP-6 » GET /info » response is compliant with the schema
+× SEP-6 » GET /info » configured asset code is enabled for deposit
+  
+  Failure Type:
+  
+    configured asset code not found
+    
+  Description:
+  
+    USDC is not present in the /info response
+    
+  Resource Links:
+  
+    Info Response: https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0006.md#response-2
+    
+√ SEP-6 » GET /info » configured asset code is enabled for withdraw
+× SEP-6 » GET /info » SEP-9 fields required for deposit match those provided in configuration
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+√ SEP-6 » GET /info » SEP-9 fields required for withdraw match those provided in configuration
+× SEP-6 » GET /deposit » requires a SEP-10 JWT if /info's 'authentication_required' is true
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-6 » GET /deposit » requires 'asset_code' parameter
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-6 » GET /deposit » requires 'account' parameter if /info's 'authentication_required' is false
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-6 » GET /deposit » rejects invalid 'account' parameter if /info's 'authentication_required' is false
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-6 » GET /deposit » rejects unsupported 'asset_code' parameter
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-6 » GET /deposit » returns a success response for valid requests
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+√ SEP-6 » GET /withdraw » requires a SEP-10 JWT if /info's 'authentication_required' is true
+√ SEP-6 » GET /withdraw » requires 'asset_code' parameter
+> SEP-6 » GET /withdraw » requires 'account' parameter if /info's 'authentication_required' is false
+> SEP-6 » GET /withdraw » rejects invalid 'account' parameter if /info's 'authentication_required' is false
+√ SEP-6 » GET /withdraw » rejects unsupported 'asset_code' parameter
+√ SEP-6 » GET /withdraw » returns a success response for valid requests
+× SEP-6 » GET /transaction » requires a JWT
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-6 » GET /transaction » has a record on /transaction after a deposit request
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /deposit
+    Assertion: returns a success response for valid requests
+    
+√ SEP-6 » GET /transaction » has a record on /transaction after a withdraw request
+× SEP-6 » GET /transaction » has proper deposit transaction schema on /transaction
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /deposit
+    Assertion: returns a success response for valid requests
+    
+√ SEP-6 » GET /transaction » has proper withdraw transaction schema on /transaction
+√ SEP-6 » GET /transaction » returns 404 for a nonexistent transaction ID
+√ SEP-6 » GET /transaction » returns 404 for a nonexistent external transaction ID
+√ SEP-6 » GET /transaction » returns 404 for a nonexistent Stellar transaction ID
+× SEP-6 » GET /transactions » requires a JWT
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /deposit
+    Assertion: returns a success response for valid requests
+    
+× SEP-6 » GET /transactions » has a record on /transactions after a deposit request
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+√ SEP-6 » GET /transactions » has a record on /transactions after a withdraw request
+× SEP-6 » GET /transactions » has proper deposit transaction schema on /transactions
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /deposit
+    Assertion: returns a success response for valid requests
+    
+√ SEP-6 » GET /transactions » has proper withdraw transaction schema on /transactions
+× SEP-6 » GET /transactions » returns an empty list for accounts with no transactions
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-6 » GET /transactions » returns proper number of transactions when 'limit' parameter is given
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /deposit
+    Assertion: returns a success response for valid requests
+    
+× SEP-6 » GET /transactions » transactions are returned in descending order of creation
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-6 » GET /transactions » returns proper transactions when 'no_older_than' parameter is given
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /transactions
+    Assertion: has proper deposit transaction schema on /transactions
+    
+× SEP-6 » GET /transactions » only returns withdraw transactions when kind=withdrawal
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /transactions
+    Assertion: has proper deposit transaction schema on /transactions
+    
+× SEP-6 » GET /transactions » only returns deposit transactions when kind=deposit
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 6
+    Group: GET /transactions
+    Assertion: has proper deposit transaction schema on /transactions
+    
+√ SEP-6 » GET /transactions » rejects requests with a bad 'asset_code' parameter
+√ SEP-24 » TOML Tests » has a valid transfer server URL
+√ SEP-24 » /info » response is compliant with the schema
+× SEP-24 » /info » configured asset code is enabled for deposit
+  
+  Failure Type:
+  
+    configured asset code not found
+    
+  Description:
+  
+    USDC is not present in the /info response
+    
+  Resource Links:
+  
+    Info Response: https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0024.md#response-2
+    
+√ SEP-24 » /info » configured asset code is enabled for withdraw
+× SEP-24 » /deposit » requires a SEP-10 JWT for deposit
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-24 » /deposit » requires 'asset_code' parameter for deposit
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-24 » /deposit » rejects invalid 'account' parameter
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-24 » /deposit » rejects unsupported 'asset_code' parameter for deposit
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-24 » /deposit » returns a proper schema for valid deposit requests
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /info
+    Assertion: configured asset code is enabled for deposit
+    
+√ SEP-24 » /withdraw » requires a SEP-10 JWT for withdraw
+√ SEP-24 » /withdraw » requires 'asset_code' parameter for withdraw
+√ SEP-24 » /withdraw » rejects unsupported 'asset_code' parameter for withdraw
+√ SEP-24 » /withdraw » returns a proper schema for valid withdraw requests
+√ SEP-24 » /transaction » requires a SEP-10 JWT on /transaction
+× SEP-24 » /transaction » has a record on /transaction after a deposit request
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /deposit
+    Assertion: returns a proper schema for valid deposit requests
+    
+√ SEP-24 » /transaction » has a record on /transaction after a withdraw request
+× SEP-24 » /transaction » has proper 'incomplete' deposit transaction schema on /transaction
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /deposit
+    Assertion: returns a proper schema for valid deposit requests
+    
+× SEP-24 » /transaction » has proper 'pending_' deposit transaction schema on /transaction
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /deposit
+    Assertion: returns a proper schema for valid deposit requests
+    
+× SEP-24 » /transaction » has proper 'completed' deposit transaction schema on /transaction
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /deposit
+    Assertion: returns a proper schema for valid deposit requests
+    
+√ SEP-24 » /transaction » has proper 'incomplete' withdraw transaction schema on /transaction
+> SEP-24 » /transaction » has proper 'pending_user_transfer_start' withdraw transaction schema on /transaction
+> SEP-24 » /transaction » has proper 'completed' withdraw transaction schema on /transaction
+> SEP-24 » /transaction » returns valid deposit transaction when using 'stellar_transaction_id' param
+> SEP-24 » /transaction » returns valid withdraw transaction when using 'stellar_transaction_id' param
+× SEP-24 » /transaction » has a valid 'more_info_url'
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /transaction
+    Assertion: has proper 'incomplete' deposit transaction schema on /transaction
+    
+√ SEP-24 » /transaction » returns 404 for a nonexistent transaction 'id'
+√ SEP-24 » /transaction » returns 404 for a nonexistent 'external_transaction_id'
+√ SEP-24 » /transaction » returns 404 for a nonexistent 'stellar_transaction_id'
+√ SEP-24 » /transactions » requires a SEP-10 JWT on /transactions
+× SEP-24 » /transactions » has a record on /transactions after a deposit request
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /info
+    Assertion: configured asset code is enabled for deposit
+    
+√ SEP-24 » /transactions » has a record on /transactions after a withdraw request
+× SEP-24 » /transactions » has proper deposit transaction schema on /transactions
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /deposit
+    Assertion: returns a proper schema for valid deposit requests
+    
+√ SEP-24 » /transactions » has proper withdraw transaction schema on /transactions
+× SEP-24 » /transactions » returns an empty list for accounts with no transactions
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-24 » /transactions » returns proper number of transactions when 'limit' parameter is given
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /deposit
+    Assertion: returns a proper schema for valid deposit requests
+    
+× SEP-24 » /transactions » transactions are returned in descending order of creation
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /info
+    Assertion: configured asset code is enabled for deposit
+    
+× SEP-24 » /transactions » returns proper transactions when 'no_older_than' parameter is given
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /transactions
+    Assertion: has proper deposit transaction schema on /transactions
+    
+× SEP-24 » /transactions » only returns withdraw transactions when kind=withdrawal
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /transactions
+    Assertion: has proper deposit transaction schema on /transactions
+    
+× SEP-24 » /transactions » only returns deposit transactions when kind=deposit
+  
+  Failure Type:
+  
+    failed dependency
+    
+  Description:
+  
+    A test dependency failed
+    
+    SEP: 24
+    Group: /transactions
+    Assertion: has proper deposit transaction schema on /transactions
+    
+√ SEP-24 » /transactions » rejects requests with a bad 'asset_code' parameter
+
+Tests:       39 failed, 64 passed, 6 skipped, 109 total
+Time:        73.460s
