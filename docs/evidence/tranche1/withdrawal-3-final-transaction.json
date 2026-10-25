@@ -1,0 +1,24 @@
+{
+  "withdraw_anchor_account": "GBHZJYFAUF3QK47NQQAGWAOUOXFMY6DQ2UUX6IJUDPCKDKKMU4FKTWGE",
+  "withdraw_memo": "4766694868692254381",
+  "withdraw_memo_type": "id",
+  "id": "d68b42e5-b9ee-4165-bbd5-a389c89af447",
+  "kind": "withdrawal",
+  "status": "completed",
+  "amount_in": "1.0000000",
+  "amount_in_asset": "stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "amount_out": "1500.00",
+  "amount_out_asset": "iso4217:NGN",
+  "fee_details": {
+    "total": "0",
+    "asset": "stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+  },
+  "started_at": "2026-10-25T22:06:29.394010Z",
+  "completed_at": "2026-10-25T22:06:57.830040Z",
+  "stellar_transaction_id": "b71d53ede715f95147e364333d32c9871f60fe056066ab43bd10f96c6cfbfce6",
+  "external_transaction_id": "anchor-d68b42e5-b9ee-4165-bbd5-a389c89af447",
+  "message": "naira sent to your bank account",
+  "refunded": false,
+  "from": "GDRGQ7VUJSLDK4B5BLR7QPLI2YWDACBSRZ33XHIQOP5KESN72JFFEFJK",
+  "to": "GBHZJYFAUF3QK47NQQAGWAOUOXFMY6DQ2UUX6IJUDPCKDKKMU4FKTWGE"
+}

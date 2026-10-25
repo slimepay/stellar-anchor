@@ -11,6 +11,7 @@ The anchor runs on Railway, in the `slimepay` project, `production` environment.
 | `anchor-platform` | SAP 5.0.0 (`stellar/anchor-platform:5.0.0`): SEP server, platform server, payment observer | `https://anchor.slimepay.com` | 8080 |
 | `stellar-anchor` | Business Server (this repo) | `https://stellar-anchor-production.up.railway.app` | 8081 |
 | `Postgres` | SAP's database (schema `anchor_platform`) | private | |
+| MongoDB | The Business Server's database (customers, withdrawals, reconciliation, audit log), set through `DATABASE_URL` | private | |
 | `server` | Slimepay core, which pays the naira out | `https://server.slimepay.com` | |
 | `client` | Slimepay web app, which proxies `/.well-known/stellar.toml` | `https://slimepay.com` | |
 

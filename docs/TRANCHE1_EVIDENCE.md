@@ -57,6 +57,8 @@ Wallet: `GDRGQ7VUJSLDK4B5BLR7QPLI2YWDACBSRZ33XHIQOP5KESN72JFFEFJK`. Distribution
 | Final status | `completed` | `completed` |
 | SAP record | [withdrawal-1-final-transaction.json](evidence/tranche1/withdrawal-1-final-transaction.json) | [withdrawal-2-final-transaction.json](evidence/tranche1/withdrawal-2-final-transaction.json) |
 
+A third withdrawal was run later as a re-check: SAP transaction `d68b42e5-b9ee-4165-bbd5-a389c89af447`, 1 USDC to NGN 1,500.00, Stellar payment [b71d53ed…fce6](https://stellar.expert/explorer/testnet/tx/b71d53ede715f95147e364333d32c9871f60fe056066ab43bd10f96c6cfbfce6) in ledger 5388483, `completed` 15 seconds after the payment reached the ledger ([record](evidence/tranche1/withdrawal-3-final-transaction.json)).
+
 Screenshots of the interactive page: [withdrawal page](evidence/tranche1/1-withdrawal-page.jpg), [details entered](evidence/tranche1/2-details-entered.jpg), [ready to pay](evidence/tranche1/3-ready-to-pay.jpg).
 
 Withdrawal 1 exposed a bug. SAP's observer matched the payment within seconds, but the Business Server could not list funded transactions: SAP 5.0's JSON-RPC `get_transactions` has no default for `order_by` and `order` and returns -32603 without them. Commit `29f1286` sends both. After it deployed, withdrawal 1 completed by itself, and withdrawal 2 then ran from start to `completed` with no intervention, the payout following the payment within seconds.

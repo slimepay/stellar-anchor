@@ -4,9 +4,9 @@ Slimepay's Stellar anchor. Users send USDC or XLM on Stellar and receive naira i
 
 The anchor runs on the [Stellar Anchor Platform](https://github.com/stellar/anchor-platform) (SAP). SAP serves every SEP endpoint wallets talk to (SEP-1, 10, 12, 6 and 24), keeps the transaction records and watches the ledger for incoming payments. This repository is the **Business Server** behind it: the part that is specific to Slimepay.
 
-- **KYC.** SAP's customer callback (`/customer`), backed by Dojah: BVN or NIN check plus sanctions and PEP screening.
+- **KYC.** SAP's customer callback (`/customer`), backed by Dojah on mainnet: BVN or NIN check plus sanctions and PEP screening. Testnet accepts customers without a Dojah call.
 - **SEP-24 withdrawal page.** The interactive page SAP sends wallets to. The user confirms identity and bank account, picks an amount and gets a naira quote.
-- **Payouts.** Polls SAP for funded withdrawals, checks the payment against the ledger, asks Slimepay core to pay naira through SafeHaven, then reports back to SAP.
+- **Payouts.** Polls SAP for funded withdrawals, checks the payment against the ledger, asks Slimepay core to pay the naira out (SafeHaven on mainnet, a test bank on testnet), then reports back to SAP.
 - **Reconciliation.** Compares SAP, the ledger and core for every finished withdrawal, and flags payments nobody can explain.
 
 Only withdrawals are offered. The anchor runs on **testnet** during the SCF tranches.
@@ -109,7 +109,7 @@ Shared secrets with SAP must match:
 | SEP endpoints (SAP) | https://anchor.slimepay.com |
 | Business Server | https://stellar-anchor-production.up.railway.app |
 
-These run on Railway as separate services (SAP, this Business Server, Postgres, Slimepay core and web app). [TESTNET_RUNBOOK.md](docs/TESTNET_RUNBOOK.md) has the full setup, the variables for each service and the checks.
+These run on Railway as separate services (SAP with its Postgres, this Business Server, Slimepay core and the web app). The Business Server stores its data in MongoDB, set through `DATABASE_URL`. [TESTNET_RUNBOOK.md](docs/TESTNET_RUNBOOK.md) has the full setup, the variables for each service and the checks.
 
 ## Running
 

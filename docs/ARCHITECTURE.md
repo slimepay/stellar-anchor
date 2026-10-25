@@ -5,7 +5,7 @@ This document describes how Slimepay runs its Stellar anchor and how this reposi
 ## Scope
 
 - **Withdrawals only.** A user sends USDC or XLM on Stellar and receives naira in a Nigerian bank account. In SEP terms that is a withdrawal. Slimepay does not offer deposits (naira in, Stellar asset out).
-- **Flows:** SEP-24 (interactive withdrawal from a wallet), SEP-6 (programmatic withdrawal), SEP-31 (B2B: a partner sends USDC, the recipient gets naira), with SEP-10 for auth, SEP-12 for KYC and SEP-38 for firm quotes.
+- **Flows:** SEP-24 (interactive withdrawal from a wallet) and SEP-6 (programmatic withdrawal), with SEP-10 for auth and SEP-12 for KYC, in Tranche 1. SEP-31 (B2B: a partner sends USDC, the recipient gets naira) and SEP-38 firm quotes follow in Tranche 2.
 
 ## Implementation path: Stellar Anchor Platform
 
@@ -13,7 +13,7 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 
 | Concern | Owned by |
 |---|---|
-| SEP-1, 10, 12, 24, 6, 31, 38 endpoints | SAP SEP server |
+| SEP-1, 10, 12, 24 and 6 endpoints (31 and 38 in Tranche 2) | SAP SEP server |
 | Transaction records and status machine | SAP platform server (Postgres) |
 | Customers (encrypted), withdrawal ledger, reconciliation results, audit log | Business Server (MongoDB) |
 | Watching the distribution account for incoming payments | SAP payment observer |
@@ -49,7 +49,7 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 
 1. The wallet authenticates with SEP-10 against SAP.
 2. The wallet starts `POST /sep24/transactions/withdraw/interactive`. SAP creates the transaction and returns the interactive URL.
-3. The user completes the Slimepay interactive page: bank account, KYC (SEP-12 through the Business Server and Dojah) and a firm quote (SEP-38 through the Business Server).
+3. The user completes the Slimepay interactive page: identity (checked by the Business Server), bank account and amount, with a naira quote from the configured rate. Tranche 2 replaces the rate with SEP-38 firm quotes.
 4. The Business Server calls the Platform API (`request_onchain_funds`) with the amounts. SAP assigns the memo and moves the transaction to `pending_user_transfer_start`.
 5. The wallet sends USDC or XLM to the distribution account with that memo.
 6. The SAP payment observer sees the payment, matches it by memo and moves the transaction to `pending_anchor`.
