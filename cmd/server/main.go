@@ -1,144 +1,117 @@
 package main
 
 import (
-	"net"
+	"context"
+	"errors"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"aidmedium/stellar-anchor/internal/alert"
+	"aidmedium/stellar-anchor/internal/audit"
+	"aidmedium/stellar-anchor/internal/auth"
+	"aidmedium/stellar-anchor/internal/chain"
 	"aidmedium/stellar-anchor/internal/config"
+	"aidmedium/stellar-anchor/internal/customer"
 	"aidmedium/stellar-anchor/internal/db"
-	"aidmedium/stellar-anchor/internal/middleware"
-	"aidmedium/stellar-anchor/internal/sep10"
-	"aidmedium/stellar-anchor/internal/sep12"
-	"aidmedium/stellar-anchor/internal/sep24"
-	"aidmedium/stellar-anchor/internal/sep31"
-	"aidmedium/stellar-anchor/internal/sep6"
+	"aidmedium/stellar-anchor/internal/interactive"
+	"aidmedium/stellar-anchor/internal/kyc"
+	"aidmedium/stellar-anchor/internal/payout"
+	"aidmedium/stellar-anchor/internal/sap"
+	"aidmedium/stellar-anchor/internal/secure"
 	"aidmedium/stellar-anchor/internal/toml"
+	"aidmedium/stellar-anchor/internal/withdrawal"
 
 	"github.com/go-chi/chi"
 	chimiddleware "github.com/go-chi/chi/middleware"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/stellar/go-stellar-sdk/clients/horizonclient"
-	stellarkeypair "github.com/stellar/go-stellar-sdk/keypair"
 )
 
 func main() {
 	_ = godotenv.Load(".env")
-
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load config")
+		log.Fatal().Err(err).Msg("invalid configuration")
 	}
 
-	anchorKP, err := stellarkeypair.ParseFull(cfg.AnchorSigningSeed)
-	if err != nil {
-		log.Fatal().Err(err).Msg("invalid ANCHOR_SIGNING_SEED")
-	}
-	cfg.AnchorSigningKey = anchorKP.Address()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	distKP, err := stellarkeypair.ParseFull(cfg.DistributionSeed)
-	if err != nil {
-		log.Fatal().Err(err).Msg("invalid DISTRIBUTION_SEED")
-	}
-	cfg.DistributionKey = distKP.Address()
-
-	log.Info().
-		Str("env", cfg.Env).
-		Str("signing_key", cfg.AnchorSigningKey).
-		Str("distribution_key", cfg.DistributionKey).
-		Msg("stellar-anchor starting")
-
-	mongoDB, err := db.Connect(cfg.DatabaseURL, "stellar_anchor")
+	mongoDB, err := db.Connect(ctx, cfg.DatabaseURL, cfg.DatabaseName)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to MongoDB")
 	}
-	log.Info().Msg("connected to MongoDB")
-
-	sep12h := sep12.NewHandler(sep12.NewMongoStore(mongoDB))
-	sep24h := sep24.NewHandler(sep24.NewMongoStore(mongoDB), cfg)
-	sep6h := sep6.NewHandler(sep6.NewMongoStore(mongoDB), cfg)
-	sep31h := sep31.NewHandler(sep31.NewMongoStore(mongoDB), cfg)
-	jwtMw := middleware.RequireSEP10JWT(cfg)
-	horizonClient := &horizonclient.Client{
-		HorizonURL: cfg.HorizonURL,
-		HTTP:       &http.Client{Timeout: 10 * time.Second},
+	box, err := secure.NewBox(cfg.EncryptionKey)
+	if err != nil {
+		log.Fatal().Err(err).Msg("invalid encryption key")
 	}
+	customerStore, err := customer.NewMongoStore(ctx, mongoDB, box)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to prepare customer store")
+	}
+	withdrawalStore, err := withdrawal.NewMongoStore(ctx, mongoDB, box)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to prepare withdrawal store")
+	}
+
+	auditLog := audit.NewMongoLogger(mongoDB)
+	alerts := alert.NewWebhook(cfg.AlertWebhookURL)
+	platform := sap.NewClient(cfg.PlatformURL, cfg.PlatformAPISecret)
+	core := payout.NewClient(cfg.CoreAPIURL, cfg.CoreAPISecret)
+	horizon := chain.NewHorizon(cfg.HorizonURL)
+
+	customers := customer.NewService(customerStore, kyc.NewDojah(cfg.DojahBaseURL, cfg.DojahAppID, cfg.DojahSecretKey), auditLog)
+	withdrawals := withdrawal.NewService(withdrawalStore, platform, customers, core, auditLog,
+		"stellar:USDC:"+cfg.USDCIssuer, cfg.NGNPerUSDC, cfg.NGNPerXLM)
+	processor := withdrawal.NewProcessor(withdrawals, horizon, alerts, cfg.DistributionAccount)
+	reconciler := withdrawal.NewReconciler(processor, withdrawal.NewMongoCursorStore(mongoDB))
 
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
-	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
-	r.Use(corsMiddleware)
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-
 	r.Get("/.well-known/stellar.toml", toml.Handler(cfg))
-	r.Get("/sep10/auth", sep10.GetChallenge(cfg))
-	r.Post("/sep10/auth", sep10.PostChallenge(cfg, horizonClient))
-
+	r.Handle("/sep24/interactive", interactive.NewHandler(cfg.InteractiveJWTSecret, platform, customers, withdrawals, core))
 	r.Group(func(r chi.Router) {
-		r.Use(jwtMw)
-		r.Get("/sep12/customer", sep12h.GetCustomer)
-		r.Put("/sep12/customer", sep12h.PutCustomer)
-		r.Delete("/sep12/customer", sep12h.DeleteCustomer)
+		r.Use(auth.RequireCallbackAuth(cfg.CallbackAPISecret))
+		customer.NewHandler(customers).Routes(r)
 	})
 
-	r.Get("/sep24/info", sep24h.Info)
-	r.Group(func(r chi.Router) {
-		r.Use(jwtMw)
-		r.Post("/sep24/transactions/withdraw/interactive", sep24h.InitiateWithdraw)
-		r.Get("/sep24/transaction", sep24h.GetTransaction)
-	})
+	go processor.Run(ctx, cfg.PollInterval)
+	go reconciler.Run(ctx, cfg.ReconcileInterval)
 
-	r.Get("/sep6/info", sep6h.Info)
-	r.Group(func(r chi.Router) {
-		r.Use(jwtMw)
-		r.Get("/sep6/withdraw", sep6h.Withdraw)
-		r.Get("/sep6/transaction", sep6h.GetTransaction)
-	})
-
-	r.Get("/sep31/info", sep31h.Info)
-	r.Group(func(r chi.Router) {
-		r.Use(jwtMw)
-		r.Post("/sep31/transactions", sep31h.CreateTransaction)
-		r.Get("/sep31/transactions/{id}", sep31h.GetTransaction)
-	})
-
-	addr := ":" + cfg.Port
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatal().Err(err).Str("addr", addr).Msg("failed to bind listen address")
+	srv := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
 	}
+	go func() {
+		<-ctx.Done()
+		shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdown)
+	}()
 
 	log.Info().
-		Str("addr", addr).
+		Str("addr", srv.Addr).
 		Str("home_domain", cfg.HomeDomain).
 		Str("web_auth_domain", cfg.WebAuthDomain).
-		Msg("stellar-anchor ready")
+		Str("distribution_account", cfg.DistributionAccount).
+		Msg("business server ready")
 
-	if err := http.Serve(ln, r); err != nil {
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal().Err(err).Msg("server error")
 	}
-}
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
 }

@@ -1,0 +1,23 @@
+{{define "style"}}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --ink: #12233d; --muted: #5b6b80; --line: #d7dee8; --accent: #1a3e6e; --bad: #b42318; --bg: #f5f7fa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+  main { max-width: 480px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 24px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  p { margin: 0 0 12px; color: var(--muted); }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  input, select { width: 100%; padding: 10px 12px; font: inherit; color: inherit; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .error { background: #fef3f2; color: var(--bad); border: 1px solid #fecdca; padding: 10px 12px; border-radius: 8px; margin: 16px 0; }
+  button { width: 100%; margin-top: 24px; padding: 12px; font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 8px; cursor: pointer; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; font-weight: 600; text-align: right; }
+</style>
+{{end}}

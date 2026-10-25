@@ -1,0 +1,176 @@
+# Slimepay anchor on Stellar testnet: SAP (SEP server, platform server,
+# payment observer), Postgres for SAP, the Business Server and its MongoDB,
+# and Caddy for TLS. Copy .env.example to .env and fill it in first.
+
+services:
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      WEB_AUTH_DOMAIN: ${WEB_AUTH_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - platform
+      - business
+
+  platform:
+    image: stellar/anchor-platform:5.0.0
+    restart: unless-stopped
+    command: --sep-server --platform-server --stellar-observer
+    depends_on:
+      - db
+      - business
+    environment:
+      STELLAR_NETWORK_NETWORK: TESTNET
+      STELLAR_NETWORK_TYPE: horizon
+      STELLAR_NETWORK_HORIZON_URL: https://horizon-testnet.stellar.org
+
+      SECRET_SEP10_SIGNING_SEED: ${SEP10_SIGNING_SEED}
+      SECRET_SEP10_JWT_SECRET: ${SEP10_JWT_SECRET}
+      SECRET_SEP6_MORE_INFO_URL_JWT_SECRET: ${SEP6_MORE_INFO_JWT_SECRET}
+      SECRET_SEP24_INTERACTIVE_URL_JWT_SECRET: ${SEP24_INTERACTIVE_JWT_SECRET}
+      SECRET_SEP24_MORE_INFO_URL_JWT_SECRET: ${SEP24_MORE_INFO_JWT_SECRET}
+      SECRET_CALLBACK_API_AUTH_SECRET: ${CALLBACK_API_SECRET}
+      SECRET_PLATFORM_API_AUTH_SECRET: ${PLATFORM_API_SECRET}
+      SECRET_DATA_USERNAME: ${POSTGRES_USER}
+      SECRET_DATA_PASSWORD: ${POSTGRES_PASSWORD}
+
+      CALLBACK_API_BASE_URL: http://business:8081
+      CALLBACK_API_AUTH_TYPE: jwt
+      PLATFORM_API_BASE_URL: http://platform:8085
+      PLATFORM_API_AUTH_TYPE: jwt
+
+      DATA_TYPE: postgres
+      DATA_SERVER: db:5432
+      DATA_DATABASE: anchor
+      DATA_SCHEMA: anchor_platform
+      DATA_FLYWAY_ENABLED: "true"
+
+      EVENTS_ENABLED: "false"
+
+      SEP1_ENABLED: "true"
+      SEP1_TOML_TYPE: url
+      SEP1_TOML_VALUE: http://business:8081/.well-known/stellar.toml
+
+      SEP10_ENABLED: "true"
+      SEP10_HOME_DOMAINS: ${HOME_DOMAIN}
+      SEP10_WEB_AUTH_DOMAIN: ${WEB_AUTH_DOMAIN}
+
+      SEP12_ENABLED: "true"
+
+      SEP6_ENABLED: "true"
+      SEP6_MORE_INFO_URL_BASE_URL: https://${HOME_DOMAIN}
+
+      SEP24_ENABLED: "true"
+      SEP24_INTERACTIVE_URL_BASE_URL: https://${WEB_AUTH_DOMAIN}/sep24/interactive
+      SEP24_INTERACTIVE_URL_JWT_EXPIRATION: "1800"
+      SEP24_MORE_INFO_URL_BASE_URL: https://${HOME_DOMAIN}
+      SEP24_KYC_FIELDS_FORWARDING_ENABLED: "false"
+
+      SEP31_ENABLED: "false"
+      SEP38_ENABLED: "false"
+
+      ASSETS_TYPE: yaml
+      ASSETS_VALUE: |
+        items:
+          - id: stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
+            distribution_account: ${DISTRIBUTION_ACCOUNT}
+            significant_decimals: 7
+            sep6:
+              enabled: true
+              deposit:
+                enabled: false
+              withdraw:
+                enabled: true
+                min_amount: 0.1
+                max_amount: 1000
+                methods:
+                  - bank_account
+            sep24:
+              enabled: true
+              deposit:
+                enabled: false
+              withdraw:
+                enabled: true
+                min_amount: 0.1
+                max_amount: 1000
+                methods:
+                  - bank_account
+          - id: stellar:native
+            distribution_account: ${DISTRIBUTION_ACCOUNT}
+            significant_decimals: 7
+            sep6:
+              enabled: true
+              deposit:
+                enabled: false
+              withdraw:
+                enabled: true
+                min_amount: 1
+                max_amount: 10000
+                methods:
+                  - bank_account
+            sep24:
+              enabled: true
+              deposit:
+                enabled: false
+              withdraw:
+                enabled: true
+                min_amount: 1
+                max_amount: 10000
+                methods:
+                  - bank_account
+          - id: iso4217:NGN
+            significant_decimals: 2
+
+  db:
+    image: postgres:15.2-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: anchor
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  business:
+    build: ..
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      PORT: "8081"
+      STELLAR_NETWORK: testnet
+      SEP10_SIGNING_KEY: ${SEP10_SIGNING_KEY}
+      DISTRIBUTION_ACCOUNT: ${DISTRIBUTION_ACCOUNT}
+      HOME_DOMAIN: ${HOME_DOMAIN}
+      WEB_AUTH_DOMAIN: ${WEB_AUTH_DOMAIN}
+      PLATFORM_API_URL: http://platform:8085
+      PLATFORM_API_SECRET: ${PLATFORM_API_SECRET}
+      CALLBACK_API_SECRET: ${CALLBACK_API_SECRET}
+      SEP24_INTERACTIVE_JWT_SECRET: ${SEP24_INTERACTIVE_JWT_SECRET}
+      DATABASE_URL: mongodb://mongo:27017
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
+      DOJAH_BASE_URL: ${DOJAH_BASE_URL:-https://sandbox.dojah.io}
+      DOJAH_APP_ID: ${DOJAH_APP_ID}
+      DOJAH_SECRET_KEY: ${DOJAH_SECRET_KEY}
+      CORE_API_URL: ${CORE_API_URL}
+      CORE_API_SECRET: ${CORE_API_SECRET}
+      NGN_PER_USDC: ${NGN_PER_USDC}
+      NGN_PER_XLM: ${NGN_PER_XLM}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  caddy-data:
+  postgres-data:
+  mongo-data:

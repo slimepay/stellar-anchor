@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "style"}}
+<title>{{.Title}} | Slimepay</title>
+</head>
+<body>
+<main>
+  <h1>{{.Title}}</h1>
+  <p>{{.Message}}</p>
+  {{with .W}}
+  <dl>
+    <dt>You send</dt><dd>{{.AmountIn}} {{$.Asset}}</dd>
+    <dt>You receive</dt><dd>NGN {{.AmountOut}}</dd>
+    <dt>Account</dt><dd>{{.AccountName}}</dd>
+  </dl>
+  {{end}}
+</main>
+</body>
+</html>

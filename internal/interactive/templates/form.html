@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "style"}}
+<title>Withdraw {{.AssetCode}} to naira | Slimepay</title>
+</head>
+<body>
+<main>
+  <h1>Withdraw {{.AssetCode}} to naira</h1>
+  {{if .Rate}}<p>1 {{.AssetCode}} = NGN {{.Rate}}. No fees on testnet.</p>{{end}}
+
+  {{if .Error}}<div class="error" role="alert">{{.Error}}</div>{{end}}
+
+  <form method="post" action="">
+    <input type="hidden" name="transaction_id" value="{{.TransactionID}}">
+    <input type="hidden" name="token" value="{{.Token}}">
+
+    <label for="amount">Amount ({{.AssetCode}})</label>
+    <input id="amount" name="amount" inputmode="decimal" value="{{.Amount}}" required>
+
+    <h2>Your identity</h2>
+    <div class="row">
+      <div>
+        <label for="first_name">First name</label>
+        <input id="first_name" name="first_name" autocomplete="given-name" value="{{index .Values "first_name"}}" required>
+      </div>
+      <div>
+        <label for="last_name">Last name</label>
+        <input id="last_name" name="last_name" autocomplete="family-name" value="{{index .Values "last_name"}}" required>
+      </div>
+    </div>
+    <label for="email_address">Email</label>
+    <input id="email_address" name="email_address" type="email" autocomplete="email" value="{{index .Values "email_address"}}" required>
+    <label for="birth_date">Date of birth</label>
+    <input id="birth_date" name="birth_date" type="date" value="{{index .Values "birth_date"}}" required>
+    <label for="mobile_number">Mobile number (optional)</label>
+    <input id="mobile_number" name="mobile_number" type="tel" autocomplete="tel" value="{{index .Values "mobile_number"}}">
+    <div class="row">
+      <div>
+        <label for="id_type">ID type</label>
+        <select id="id_type" name="id_type" required>
+          <option value="bvn" {{if eq (index .Values "id_type") "bvn"}}selected{{end}}>BVN</option>
+          <option value="nin" {{if eq (index .Values "id_type") "nin"}}selected{{end}}>NIN</option>
+        </select>
+      </div>
+      <div>
+        <label for="id_number">ID number</label>
+        <input id="id_number" name="id_number" inputmode="numeric" maxlength="11" autocomplete="off" {{if not .HasIDNumber}}required{{end}}>
+      </div>
+    </div>
+    {{if .HasIDNumber}}<div class="hint">Leave the ID number blank to keep the one we have.</div>{{end}}
+
+    <h2>Bank account</h2>
+    <label for="bank_number">Bank</label>
+    <select id="bank_number" name="bank_number" required>
+      <option value="">Choose your bank</option>
+      {{$selected := index .Values "bank_number"}}
+      {{range .Banks}}<option value="{{.Code}}" {{if eq .Code $selected}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    <label for="bank_account_number">Account number</label>
+    <input id="bank_account_number" name="bank_account_number" inputmode="numeric" maxlength="10" value="{{index .Values "bank_account_number"}}" required>
+
+    <button type="submit">Continue</button>
+  </form>
+</main>
+</body>
+</html>

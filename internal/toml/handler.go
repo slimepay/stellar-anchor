@@ -1,3 +1,5 @@
+// Package toml builds the anchor's stellar.toml. SAP serves it to wallets
+// (sep1.toml.type is url and points here), and the home domain proxies to SAP.
 package toml
 
 import (
@@ -7,80 +9,58 @@ import (
 	"aidmedium/stellar-anchor/internal/config"
 )
 
-// Handler serves /.well-known/stellar.toml, the anchor discovery file.
-// Stellar wallets, SEP validators, and other anchors fetch this first.
-// It must be reachable on HOME_DOMAIN. SEP endpoints point at WEB_AUTH_DOMAIN
-// because wallets check that host against web_auth_domain in SEP-10 challenges.
 func Handler(cfg *config.Config) http.HandlerFunc {
+	body := Render(cfg)
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		// CORS required: any Stellar wallet must be able to fetch this
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		_, _ = fmt.Fprint(w, body)
+	}
+}
 
-		network := "testnet"
-		status := "test"
-		if cfg.Env == "mainnet" {
-			network = "mainnet"
-			status = "live"
-		}
-
-		toml := fmt.Sprintf(`# Slimepay Stellar Anchor
-# https://%s/.well-known/stellar.toml
-
-NETWORK_PASSPHRASE="%s"
+// Render returns the stellar.toml content. Endpoints are on WEB_AUTH_DOMAIN,
+// where SAP's SEP server runs.
+func Render(cfg *config.Config) string {
+	sep := "https://" + cfg.WebAuthDomain
+	return fmt.Sprintf(`NETWORK_PASSPHRASE="%s"
 HORIZON_URL="%s"
 ACCOUNTS=["%s"]
-VERSION="0.1.0"
 SIGNING_KEY="%s"
-
-WEB_AUTH_ENDPOINT="https://%s/sep10/auth"
-TRANSFER_SERVER_SEP0024="https://%s/sep24"
-TRANSFER_SERVER="https://%s/sep6"
-KYC_SERVER="https://%s/sep12"
-DIRECT_PAYMENT_SERVER="https://%s/sep31"
-
-[[CURRENCIES]]
-code="USDC"
-issuer="%s"
-status="%s"
-is_asset_anchored=true
-anchor_asset_type="fiat"
-anchor_asset="USD"
-desc="USD Coin on Stellar"
-display_decimals=2
-
-[[CURRENCIES]]
-code="XLM"
-status="%s"
-is_asset_anchored=false
-desc="Stellar Lumens"
-display_decimals=7
+WEB_AUTH_ENDPOINT="%s/auth"
+TRANSFER_SERVER="%s/sep6"
+TRANSFER_SERVER_SEP0024="%s/sep24"
+KYC_SERVER="%s/sep12"
 
 [DOCUMENTATION]
 ORG_NAME="Slimepay"
 ORG_URL="https://%s"
-ORG_DESCRIPTION="Slimepay Stellar Anchor: USDC and XLM withdrawals to Nigerian bank accounts"
-ORG_TWITTER="@slimepay"
+ORG_DESCRIPTION="Withdraw USDC and XLM from Stellar to Nigerian bank accounts."
+ORG_TWITTER="slimepay"
 
-# Environment: %s
+[[CURRENCIES]]
+code="USDC"
+issuer="%s"
+status="test"
+is_asset_anchored=true
+anchor_asset_type="fiat"
+anchor_asset="USD"
+display_decimals=2
+desc="USD Coin. Withdraw to a Nigerian bank account in naira."
+
+[[CURRENCIES]]
+code="native"
+status="test"
+is_asset_anchored=false
+anchor_asset_type="crypto"
+display_decimals=7
+desc="Stellar Lumens. Withdraw to a Nigerian bank account in naira."
 `,
-			cfg.HomeDomain,
-			cfg.NetworkPassphrase,
-			cfg.HorizonURL,
-			cfg.DistributionKey,
-			cfg.AnchorSigningKey,
-			cfg.WebAuthDomain,
-			cfg.WebAuthDomain,
-			cfg.WebAuthDomain,
-			cfg.WebAuthDomain,
-			cfg.WebAuthDomain,
-			cfg.USDCIssuer,
-			status,
-			status,
-			cfg.HomeDomain,
-			network,
-		)
-
-		fmt.Fprint(w, toml)
-	}
+		cfg.NetworkPassphrase,
+		cfg.HorizonURL,
+		cfg.DistributionAccount,
+		cfg.SigningKey,
+		sep, sep, sep, sep,
+		cfg.HomeDomain,
+		cfg.USDCIssuer,
+	)
 }

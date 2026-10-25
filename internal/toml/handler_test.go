@@ -8,136 +8,78 @@ import (
 	"aidmedium/stellar-anchor/internal/config"
 	"aidmedium/stellar-anchor/internal/toml"
 
+	burnttoml "github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func testConfig() *config.Config {
 	return &config.Config{
-		Env:               "testnet",
-		NetworkPassphrase: "Test SDF Network ; September 2015",
-		HorizonURL:        "https://horizon-testnet.stellar.org",
-		AnchorSigningKey:  "GDQERENWDDSQZS7R7WKHZI3BSOYMV3FSWR7TFUYFTKQ447PIX6NREOJM",
-		DistributionKey:   "GDIST0000EXAMPLEKEY000000000000000000000000000000000000000",
-		USDCIssuer:        "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
-		HomeDomain:        "example.com",
-		WebAuthDomain:     "anchor.example.com",
+		NetworkPassphrase:   config.TestnetPassphrase,
+		HorizonURL:          config.TestnetHorizonURL,
+		SigningKey:          "GDQERENWDDSQZS7R7WKHZI3BSOYMV3FSWR7TFUYFTKQ447PIX6NREOJM",
+		DistributionAccount: "GBN4NNCDGJO4XW4KQU3CBIESUJWFVBUZPOKUZHT7W7WRB7CWOA7BXVQF",
+		USDCIssuer:          config.TestnetUSDCIssuer,
+		HomeDomain:          "example.com",
+		WebAuthDomain:       "anchor.example.com",
 	}
 }
 
-func TestHandler_StatusOK(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(testConfig())(w, req)
-	require.Equal(t, http.StatusOK, w.Code)
+type parsed struct {
+	NetworkPassphrase     string   `toml:"NETWORK_PASSPHRASE"`
+	Accounts              []string `toml:"ACCOUNTS"`
+	SigningKey            string   `toml:"SIGNING_KEY"`
+	WebAuthEndpoint       string   `toml:"WEB_AUTH_ENDPOINT"`
+	TransferServer        string   `toml:"TRANSFER_SERVER"`
+	TransferServerSep0024 string   `toml:"TRANSFER_SERVER_SEP0024"`
+	KYCServer             string   `toml:"KYC_SERVER"`
+	Currencies            []struct {
+		Code   string `toml:"code"`
+		Issuer string `toml:"issuer"`
+		Status string `toml:"status"`
+	} `toml:"CURRENCIES"`
 }
 
-func TestHandler_ContentType(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
+func render(t *testing.T) (*httptest.ResponseRecorder, parsed) {
+	t.Helper()
 	w := httptest.NewRecorder()
-	toml.Handler(testConfig())(w, req)
+	toml.Handler(testConfig())(w, httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil))
+	require.Equal(t, http.StatusOK, w.Code)
+	var p parsed
+	_, err := burnttoml.Decode(w.Body.String(), &p)
+	require.NoError(t, err, "stellar.toml must be valid TOML")
+	return w, p
+}
+
+func TestHeaders(t *testing.T) {
+	w, _ := render(t)
+	assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
 	assert.Equal(t, "text/plain; charset=utf-8", w.Header().Get("Content-Type"))
 }
 
-func TestHandler_CORSWildcard(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(testConfig())(w, req)
-	assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"),
-		"CORS must be wildcard — any Stellar wallet must be able to fetch stellar.toml")
+func TestEndpointsPointAtSAP(t *testing.T) {
+	_, p := render(t)
+	assert.Equal(t, "https://anchor.example.com/auth", p.WebAuthEndpoint)
+	assert.Equal(t, "https://anchor.example.com/sep6", p.TransferServer)
+	assert.Equal(t, "https://anchor.example.com/sep24", p.TransferServerSep0024)
+	assert.Equal(t, "https://anchor.example.com/sep12", p.KYCServer)
 }
 
-func TestHandler_ContainsNetworkPassphrase(t *testing.T) {
+func TestKeysAndNetwork(t *testing.T) {
+	_, p := render(t)
 	cfg := testConfig()
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(cfg)(w, req)
-	assert.Contains(t, w.Body.String(), cfg.NetworkPassphrase)
+	assert.Equal(t, cfg.NetworkPassphrase, p.NetworkPassphrase)
+	assert.Equal(t, cfg.SigningKey, p.SigningKey)
+	assert.Equal(t, []string{cfg.DistributionAccount}, p.Accounts)
 }
 
-func TestHandler_ContainsSigningKey(t *testing.T) {
-	cfg := testConfig()
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(cfg)(w, req)
-	assert.Contains(t, w.Body.String(), cfg.AnchorSigningKey)
-}
-
-func TestHandler_ContainsSEPEndpoints(t *testing.T) {
-	cfg := testConfig()
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(cfg)(w, req)
-	body := w.Body.String()
-
-	endpoints := []string{
-		"WEB_AUTH_ENDPOINT",
-		"TRANSFER_SERVER_SEP0024",
-		"TRANSFER_SERVER",
-		"KYC_SERVER",
-		"DIRECT_PAYMENT_SERVER",
+func TestCurrenciesAreTestAssets(t *testing.T) {
+	_, p := render(t)
+	require.Len(t, p.Currencies, 2)
+	assert.Equal(t, "USDC", p.Currencies[0].Code)
+	assert.Equal(t, config.TestnetUSDCIssuer, p.Currencies[0].Issuer)
+	assert.Equal(t, "native", p.Currencies[1].Code)
+	for _, c := range p.Currencies {
+		assert.Equal(t, "test", c.Status)
 	}
-	for _, ep := range endpoints {
-		assert.Contains(t, body, ep, "stellar.toml must declare %s", ep)
-	}
-}
-
-func TestHandler_ContainsCurrencies(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(testConfig())(w, req)
-	body := w.Body.String()
-
-	assert.Contains(t, body, `code="USDC"`)
-	assert.Contains(t, body, `code="XLM"`)
-}
-
-func TestHandler_USDCIssuerPresent(t *testing.T) {
-	cfg := testConfig()
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(cfg)(w, req)
-	assert.Contains(t, w.Body.String(), cfg.USDCIssuer)
-}
-
-func TestHandler_EndpointsUseWebAuthDomain(t *testing.T) {
-	cfg := testConfig()
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(cfg)(w, req)
-	body := w.Body.String()
-
-	assert.Contains(t, body, `WEB_AUTH_ENDPOINT="https://`+cfg.WebAuthDomain+`/sep10/auth"`)
-	assert.Contains(t, body, `TRANSFER_SERVER_SEP0024="https://`+cfg.WebAuthDomain+`/sep24"`)
-	assert.Contains(t, body, `TRANSFER_SERVER="https://`+cfg.WebAuthDomain+`/sep6"`)
-	assert.Contains(t, body, `KYC_SERVER="https://`+cfg.WebAuthDomain+`/sep12"`)
-	assert.Contains(t, body, `DIRECT_PAYMENT_SERVER="https://`+cfg.WebAuthDomain+`/sep31"`)
-	assert.Contains(t, body, `ORG_URL="https://`+cfg.HomeDomain+`"`)
-}
-
-func TestHandler_TestnetAssetsMarkedTest(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(testConfig())(w, req)
-	body := w.Body.String()
-
-	assert.Contains(t, body, `status="test"`)
-	assert.NotContains(t, body, `status="live"`)
-}
-
-func TestHandler_MainnetConfig(t *testing.T) {
-	cfg := testConfig()
-	cfg.Env = "mainnet"
-	cfg.NetworkPassphrase = "Public Global Stellar Network ; September 2015"
-	cfg.USDCIssuer = "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
-
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/stellar.toml", nil)
-	w := httptest.NewRecorder()
-	toml.Handler(cfg)(w, req)
-
-	body := w.Body.String()
-	assert.Contains(t, body, "Public Global Stellar Network")
-	assert.Contains(t, body, cfg.USDCIssuer)
-	assert.Contains(t, body, "mainnet")
-	assert.Contains(t, body, `status="live"`)
 }

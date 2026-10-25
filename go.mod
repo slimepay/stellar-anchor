@@ -3,6 +3,7 @@ module aidmedium/stellar-anchor
 go 1.25
 
 require (
+	github.com/BurntSushi/toml v1.4.0
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/google/uuid v1.6.0

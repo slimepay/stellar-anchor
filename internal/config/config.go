@@ -1,87 +1,169 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
+	"math/big"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/stellar/go-stellar-sdk/strkey"
+)
+
+const (
+	TestnetPassphrase  = "Test SDF Network ; September 2015"
+	TestnetHorizonURL  = "https://horizon-testnet.stellar.org"
+	TestnetUSDCIssuer  = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+	DojahSandboxURL    = "https://sandbox.dojah.io"
+	minSharedSecretLen = 32
 )
 
 type Config struct {
-	// Server
 	Port string
-	Env  string // "testnet" | "mainnet"
 
-	// Stellar
-	NetworkPassphrase  string
-	HorizonURL         string
-	AnchorSigningSeed  string // S... seed for SEP-10 signing
-	AnchorSigningKey   string // G... public key (derived, set at startup)
-	DistributionSeed   string // S... seed for funded distribution account
-	DistributionKey    string // G... public key
+	NetworkPassphrase   string
+	HorizonURL          string
+	USDCIssuer          string
+	SigningKey          string
+	DistributionAccount string
 
-	// USDC
-	USDCIssuer string
+	HomeDomain    string
+	WebAuthDomain string
 
-	// SEP-10
-	WebAuthDomain  string // e.g. "anchor.slimepay.com"
-	HomeDomain     string // e.g. "slimepay.com"
-	JWTSecret      string
-	JWTExpiryHours int
+	PlatformURL          string
+	PlatformAPISecret    string
+	CallbackAPISecret    string
+	InteractiveJWTSecret string
 
-	// Database
-	DatabaseURL string
+	DatabaseURL   string
+	DatabaseName  string
+	EncryptionKey []byte
 
-	// Slimepay core backend (internal API for KYC, payouts)
+	DojahBaseURL   string
+	DojahAppID     string
+	DojahSecretKey string
+
 	CoreAPIURL    string
 	CoreAPISecret string
+
+	NGNPerUSDC *big.Rat
+	NGNPerXLM  *big.Rat
+
+	PollInterval      time.Duration
+	ReconcileInterval time.Duration
+	AlertWebhookURL   string
 }
 
+// Load reads the Business Server configuration from the environment. The
+// anchor runs on testnet only for the SCF tranches, so any other network is
+// refused rather than silently accepted.
 func Load() (*Config, error) {
-	env := getEnv("STELLAR_ENV", "testnet")
+	var missing []string
+	req := func(key string) string {
+		v := strings.TrimSpace(os.Getenv(key))
+		if v == "" {
+			missing = append(missing, key)
+		}
+		return v
+	}
 
-	var horizonURL, passphrase, usdcIssuer string
-	switch strings.ToLower(env) {
-	case "mainnet":
-		horizonURL = "https://horizon.stellar.org"
-		passphrase = "Public Global Stellar Network ; September 2015"
-		usdcIssuer = getEnv("USDC_ISSUER", "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN")
-	default:
-		horizonURL = "https://horizon-testnet.stellar.org"
-		passphrase = "Test SDF Network ; September 2015"
-		usdcIssuer = getEnv("USDC_ISSUER", "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5")
+	if n := strings.ToLower(getEnv("STELLAR_NETWORK", "testnet")); n != "testnet" {
+		return nil, fmt.Errorf("STELLAR_NETWORK must be testnet, got %q", n)
 	}
 
 	cfg := &Config{
-		Port:              getEnv("PORT", "8081"),
-		Env:               env,
-		NetworkPassphrase: passphrase,
-		HorizonURL:        getEnv("HORIZON_URL", horizonURL),
-		AnchorSigningSeed: mustEnv("ANCHOR_SIGNING_SEED"),
-		DistributionSeed:  mustEnv("DISTRIBUTION_SEED"),
-		USDCIssuer:        usdcIssuer,
-		WebAuthDomain:     mustEnv("WEB_AUTH_DOMAIN"),
-		HomeDomain:        mustEnv("HOME_DOMAIN"),
-		JWTSecret:         mustEnv("JWT_SECRET"),
-		JWTExpiryHours:    24,
-		DatabaseURL:       mustEnv("DATABASE_URL"),
-		CoreAPIURL:        getEnv("CORE_API_URL", "http://localhost:8080"),
-		CoreAPISecret:     mustEnv("CORE_API_SECRET"),
+		Port:                 getEnv("PORT", "8081"),
+		NetworkPassphrase:    TestnetPassphrase,
+		HorizonURL:           getEnv("HORIZON_URL", TestnetHorizonURL),
+		USDCIssuer:           getEnv("USDC_ISSUER", TestnetUSDCIssuer),
+		SigningKey:           req("SEP10_SIGNING_KEY"),
+		DistributionAccount:  req("DISTRIBUTION_ACCOUNT"),
+		HomeDomain:           req("HOME_DOMAIN"),
+		WebAuthDomain:        req("WEB_AUTH_DOMAIN"),
+		PlatformURL:          strings.TrimRight(req("PLATFORM_API_URL"), "/"),
+		PlatformAPISecret:    req("PLATFORM_API_SECRET"),
+		CallbackAPISecret:    req("CALLBACK_API_SECRET"),
+		InteractiveJWTSecret: req("SEP24_INTERACTIVE_JWT_SECRET"),
+		DatabaseURL:          req("DATABASE_URL"),
+		DatabaseName:         getEnv("DATABASE_NAME", "stellar_anchor"),
+		DojahBaseURL:         strings.TrimRight(getEnv("DOJAH_BASE_URL", DojahSandboxURL), "/"),
+		DojahAppID:           req("DOJAH_APP_ID"),
+		DojahSecretKey:       req("DOJAH_SECRET_KEY"),
+		CoreAPIURL:           strings.TrimRight(req("CORE_API_URL"), "/"),
+		CoreAPISecret:        req("CORE_API_SECRET"),
+		AlertWebhookURL:      strings.TrimSpace(os.Getenv("ALERT_WEBHOOK_URL")),
+	}
+	encKey := req("DATA_ENCRYPTION_KEY")
+	usdcRate := req("NGN_PER_USDC")
+	xlmRate := req("NGN_PER_XLM")
+
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("missing required env vars: %s", strings.Join(missing, ", "))
+	}
+
+	for _, kv := range [][2]string{
+		{"SEP10_SIGNING_KEY", cfg.SigningKey},
+		{"DISTRIBUTION_ACCOUNT", cfg.DistributionAccount},
+		{"USDC_ISSUER", cfg.USDCIssuer},
+	} {
+		if !strkey.IsValidEd25519PublicKey(kv[1]) {
+			return nil, fmt.Errorf("%s must be a Stellar public key (G...)", kv[0])
+		}
+	}
+
+	for _, kv := range [][2]string{
+		{"PLATFORM_API_SECRET", cfg.PlatformAPISecret},
+		{"CALLBACK_API_SECRET", cfg.CallbackAPISecret},
+		{"SEP24_INTERACTIVE_JWT_SECRET", cfg.InteractiveJWTSecret},
+		{"CORE_API_SECRET", cfg.CoreAPISecret},
+	} {
+		if len(kv[1]) < minSharedSecretLen {
+			return nil, fmt.Errorf("%s must be at least %d characters", kv[0], minSharedSecretLen)
+		}
+	}
+
+	key, err := base64.StdEncoding.DecodeString(encKey)
+	if err != nil || len(key) != 32 {
+		return nil, fmt.Errorf("DATA_ENCRYPTION_KEY must be 32 bytes, base64 encoded")
+	}
+	cfg.EncryptionKey = key
+
+	if cfg.NGNPerUSDC, err = positiveRate("NGN_PER_USDC", usdcRate); err != nil {
+		return nil, err
+	}
+	if cfg.NGNPerXLM, err = positiveRate("NGN_PER_XLM", xlmRate); err != nil {
+		return nil, err
+	}
+	if cfg.PollInterval, err = duration("POLL_INTERVAL", "15s"); err != nil {
+		return nil, err
+	}
+	if cfg.ReconcileInterval, err = duration("RECONCILE_INTERVAL", "10m"); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil
 }
 
 func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
 	}
 	return fallback
 }
 
-func mustEnv(key string) string {
-	v := os.Getenv(key)
-	if v == "" {
-		panic(fmt.Sprintf("required env var %s is not set", key))
+func positiveRate(key, v string) (*big.Rat, error) {
+	r, ok := new(big.Rat).SetString(v)
+	if !ok || r.Sign() <= 0 {
+		return nil, fmt.Errorf("%s must be a positive number", key)
 	}
-	return v
+	return r, nil
+}
+
+func duration(key, fallback string) (time.Duration, error) {
+	d, err := time.ParseDuration(getEnv(key, fallback))
+	if err != nil || d <= 0 {
+		return 0, fmt.Errorf("%s must be a positive duration such as 15s or 10m", key)
+	}
+	return d, nil
 }

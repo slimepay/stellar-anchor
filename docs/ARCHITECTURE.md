@@ -18,8 +18,8 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 | Watching the distribution account for incoming payments | SAP payment observer |
 | Memo assignment for incoming payments | SAP (`deposit_info_generator_type: self`, random 64 bit memo IDs) |
 | KYC data and checks | Business Server (this repo), calling Dojah |
-| Quotes and fees | Business Server, answering SAP's rate callback |
-| Interactive withdrawal UI | Slimepay web app, opened from SAP's `interactive_url` |
+| Quotes and fees | Business Server. Tranche 1 uses a configured naira rate with no fee; SEP-38 firm quotes come in Tranche 2 |
+| Interactive withdrawal UI | Business Server page at `/sep24/interactive` (Tranche 1); the full UI with quote acceptance is Tranche 2 |
 | Naira payout | Slimepay core backend, through SafeHaven |
 | Reconciliation | Business Server |
 
@@ -58,19 +58,23 @@ SEP-6 follows the same steps without the interactive page. SEP-31 is the same fr
 
 ### Reconciliation
 
-A scheduled job in the Business Server compares three sources for every transaction in a terminal state:
+Reconciliation runs at two points.
 
-- the SAP transaction (amounts, memo, status),
+Before paying out, the processor checks the payment SAP matched against Horizon: the transaction exists and succeeded, the memo is the one SAP assigned, and the amount of the right asset paid to the distribution account equals the quoted amount. Any difference puts the transaction on hold (`notify_transaction_on_hold`) with an alert, and nothing is paid. A payout whose outcome SafeHaven did not confirm is held the same way.
+
+After completion, a scheduled job compares three sources for every completed withdrawal:
+
+- the SAP transaction (amounts, memo, external transaction ID),
 - the on-chain payment to the distribution account (Horizon),
-- the SafeHaven payout record.
+- the payout record in core (status, amount, reference).
 
-Any mismatch (payment with no transaction, payout with no payment, amount differences) raises an alert and puts the transaction on hold (`notify_transaction_on_hold`) until someone reviews it.
+A mismatch is recorded on the withdrawal and alerted once. The same job walks every incoming payment to the distribution account and alerts on any whose memo belongs to no withdrawal.
 
 ### Infrastructure
 
 Sized for a five person team at current volume:
 
-- One VM running Docker Compose: SAP SEP server, platform server and payment observer, the Business Server, and Postgres.
+- One VM running Docker Compose (`deploy/`): SAP SEP server, platform server and payment observer, Postgres for SAP, the Business Server with its MongoDB, and Caddy for TLS. Only Caddy is exposed; the Platform API and the callback API stay on the internal network.
 - SAP events stay disabled at first. The Business Server polls the Platform API for transactions that need action. A queue (Kafka or SQS) is only added if polling stops being enough.
 - Logs and alerts go to the existing Slimepay monitoring. No separate observability stack.
 
@@ -84,21 +88,18 @@ Sized for a five person team at current volume:
 
 ## Current state of this repository
 
-This repo started as a hand written Go SEP server. It is the testnet prototype and the starting point for the Business Server.
+This repository is the Business Server. The hand written SEP handlers from the prototype have been removed; SAP serves the SEP endpoints.
 
-Already aligned with the target design:
+Built in Tranche 1:
 
-- SEP-10 verification follows the spec (time bounds, home domain, account signers and thresholds, single use challenges).
-- SEP-24 and SEP-6 offer withdrawals only.
-- Memos are random 64 bit memo IDs (`memo_type` `id`), the same format SAP assigns.
-- `stellar.toml` points the SEP endpoints at the anchor host and marks assets as `test` on testnet.
+- Customer callback (`GET/PUT/DELETE /customer`) with Dojah BVN or NIN verification and sanctions and PEP screening. Customer data is encrypted at rest.
+- SEP-24 withdrawal page that verifies SAP's interactive token and calls `request_onchain_funds`.
+- SEP-6 withdrawals started by the processor once KYC has passed.
+- Payout processor using the Platform API (`request_onchain_funds`, `notify_offchain_funds_pending`, `notify_offchain_funds_sent`, `notify_transaction_error`, `notify_transaction_on_hold`) and Slimepay core's anchor payout API, which pays through the SafeHaven sandbox.
+- Reconciliation v1 and alerts, audit log.
+- Testnet deployment stack in `deploy/`, and `stellar.toml` served on the home domain by the Slimepay web app, which proxies SAP.
 
-Not built yet (Tranche 1 and 2 work):
-
-- SAP deployment. Once SAP serves the SEP endpoints, the handlers in `internal/sep*` are retired and this service implements SAP's callback API instead.
-- Payment observing, payout execution and Dojah KYC. Today the SEP handlers only create transaction records.
-- The interactive withdrawal page.
-- Reconciliation.
+Tranche 2: SEP-38 quotes through the rate callback, the full interactive UI, SEP-31 and partner webhooks.
 
 ## Out of scope
 
