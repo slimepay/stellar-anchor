@@ -74,7 +74,8 @@ A mismatch is recorded on the withdrawal and alerted once. The same job walks ev
 
 Sized for a five person team at current volume:
 
-- One VM running Docker Compose (`deploy/`): SAP SEP server, platform server and payment observer, Postgres for SAP, the Business Server with its MongoDB, and Caddy for TLS. Only Caddy is exposed; the Platform API and the callback API stay on the internal network.
+- Railway, next to the existing Slimepay services: SAP (SEP server, platform server and payment observer) at `anchor.slimepay.com`, Postgres for SAP, and the Business Server. They talk over Railway's private network. Only the SEP server and the Business Server's interactive page are public; the Platform API stays private and the callback API requires SAP's token.
+- `deploy/` holds the same stack as a Docker Compose file for a single VM, with Caddy for TLS.
 - SAP events stay disabled at first. The Business Server polls the Platform API for transactions that need action. A queue (Kafka or SQS) is only added if polling stops being enough.
 - Logs and alerts go to the existing Slimepay monitoring. No separate observability stack.
 
@@ -97,7 +98,7 @@ Built in Tranche 1:
 - SEP-6 withdrawals started by the processor once KYC has passed.
 - Payout processor using the Platform API (`request_onchain_funds`, `notify_offchain_funds_pending`, `notify_offchain_funds_sent`, `notify_transaction_error`, `notify_transaction_on_hold`) and Slimepay core's anchor payout API, which pays through the SafeHaven sandbox.
 - Reconciliation v1 and alerts, audit log.
-- Testnet deployment stack in `deploy/`, and `stellar.toml` served on the home domain by the Slimepay web app, which proxies SAP.
+- Testnet deployment on Railway (see the [testnet runbook](TESTNET_RUNBOOK.md)), and `stellar.toml` served on the home domain by the Slimepay web app, which proxies SAP.
 
 Tranche 2: SEP-38 quotes through the rate callback, the full interactive UI, SEP-31 and partner webhooks.
 

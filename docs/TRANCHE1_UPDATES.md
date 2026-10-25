@@ -6,7 +6,7 @@ Highlights of the SCF #45 Tranche 1 work. The design is in the [ARCHITECTURE doc
 
 - SAP 5.0.0 serves SEP-1, 10, 12, 6 and 24 on testnet. Its payment observer watches the distribution account.
 - The prototype SEP handlers in this repo were removed. The repo is now the Business Server behind SAP.
-- `deploy/` holds the testnet stack: SAP, Postgres, the Business Server, MongoDB and Caddy.
+- Deployed on Railway: SAP at `anchor.slimepay.com`, the Business Server, and Postgres. `deploy/` has the same stack for a single machine.
 
 ## KYC
 

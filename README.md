@@ -59,7 +59,7 @@ internal/
   money/                 Exact decimal amounts
   toml/                  stellar.toml, served to SAP
   db/                    MongoDB connection
-deploy/                  Docker Compose stack for testnet (SAP, Postgres, Business Server, MongoDB, Caddy)
+deploy/                  Docker Compose stack for running everything on one machine
 docs/                    Architecture, Tranche 1 notes, testnet runbook
 ```
 
@@ -101,13 +101,23 @@ Shared secrets with SAP must match:
 
 ---
 
+## Live on testnet
+
+| | URL |
+|---|---|
+| Home domain (stellar.toml) | https://slimepay.com/.well-known/stellar.toml |
+| SEP endpoints (SAP) | https://anchor.slimepay.com |
+| Business Server | https://stellar-anchor-production.up.railway.app |
+
+These run on Railway as separate services (SAP, this Business Server, Postgres, Slimepay core and web app). [TESTNET_RUNBOOK.md](docs/TESTNET_RUNBOOK.md) has the full setup, the variables for each service and the checks.
+
 ## Running
 
 ```bash
 go run ./cmd/server
 ```
 
-The full testnet stack:
+Everything on one machine with Docker Compose:
 
 ```bash
 cd deploy
