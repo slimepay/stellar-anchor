@@ -101,6 +101,10 @@ services:
                 max_amount: 1000
                 methods:
                   - bank_account
+            sep31:
+              enabled: false
+            sep38:
+              enabled: false
           - id: stellar:native
             distribution_account: ${DISTRIBUTION_ACCOUNT}
             significant_decimals: 7
@@ -124,8 +128,16 @@ services:
                 max_amount: 10000
                 methods:
                   - bank_account
+            sep31:
+              enabled: false
+            sep38:
+              enabled: false
           - id: iso4217:NGN
             significant_decimals: 2
+            sep31:
+              enabled: false
+            sep38:
+              enabled: false
 
   db:
     image: postgres:15.2-alpine
