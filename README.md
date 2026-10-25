@@ -9,7 +9,7 @@ The anchor runs on the [Stellar Anchor Platform](https://github.com/stellar/anch
 - **Payouts.** Polls SAP for funded withdrawals, checks the payment against the ledger, asks Slimepay core to pay naira through SafeHaven, then reports back to SAP.
 - **Reconciliation.** Compares SAP, the ledger and core for every finished withdrawal, and flags payments nobody can explain.
 
-Only withdrawals are offered. Everything runs on **testnet** for the SCF tranches, and the service refuses to start on any other network.
+Only withdrawals are offered. The anchor runs on **testnet** during the SCF tranches.
 
 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design, [TRANCHE1_UPDATES.md](docs/TRANCHE1_UPDATES.md) for what changed in Tranche 1, and [TESTNET_RUNBOOK.md](docs/TESTNET_RUNBOOK.md) to deploy and verify it.
 
@@ -31,11 +31,9 @@ Anything that does not add up puts the transaction on hold (`notify_transaction_
 
 Core keys every payout on the SAP transaction ID, with a unique index, and claims it with a conditional update before calling SafeHaven. Calling it again, at the same time or after a crash, returns the same payout and never sends money twice. If SafeHaven does not answer, the payout is held for someone to check rather than retried.
 
-### Testnet safety
+### Testnet and mainnet
 
-- The Business Server only accepts `STELLAR_NETWORK=testnet`.
-- Core's anchor payout API uses its own SafeHaven credentials and refuses to run against SafeHaven's live API.
-- Dojah defaults to its sandbox.
+`STELLAR_NETWORK` on the Business Server and `ANCHOR_NETWORK` on core select `testnet` (the default) or `mainnet`. Mainnet uses Dojah and the SafeHaven credentials already configured on core. The Business Server sends its network with every payout, and core refuses a payout for the other network, so testnet and mainnet withdrawals never cross.
 
 ---
 
@@ -44,7 +42,7 @@ Core keys every payout on the SAP transaction ID, with a unique index, and claim
 ```
 cmd/server/main.go       Wiring: config, stores, HTTP routes, processor and reconciler
 internal/
-  config/                Environment config (testnet only)
+  config/                Environment config (testnet or mainnet)
   auth/                  SAP tokens: callback auth, Platform API token, SEP-24 interactive token
   sap/                   Platform API client (JSON-RPC)
   customer/              /customer callback, KYC state, encrypted customer store

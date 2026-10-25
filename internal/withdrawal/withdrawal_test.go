@@ -126,6 +126,7 @@ func TestPayoutHappyPath(t *testing.T) {
 	assert.Equal(t, []string{"request_onchain_funds:tx-1", "pending:tx-1", "sent:tx-1"}, e.platform.calls)
 	assert.Equal(t, sap.StatusCompleted, e.platform.txs["tx-1"].Status)
 	assert.Equal(t, 1, e.core.transfers)
+	assert.Equal(t, "testnet", e.core.lastNetwork, "core is told which network the payout belongs to")
 	assert.Equal(t, "ref-tx-1", e.store.m["tx-1"].PayoutRef)
 
 	e.proc.Tick(ctx)

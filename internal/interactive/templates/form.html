@@ -7,7 +7,7 @@
 <body>
 <main>
   <h1>Withdraw {{.AssetCode}} to naira</h1>
-  {{if .Rate}}<p>1 {{.AssetCode}} = NGN {{.Rate}}. No fees on testnet.</p>{{end}}
+  {{if .Rate}}<p>1 {{.AssetCode}} = NGN {{.Rate}}</p>{{end}}
 
   {{if .Error}}<div class="error" role="alert">{{.Error}}</div>{{end}}
 

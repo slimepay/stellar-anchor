@@ -73,6 +73,17 @@ func TestKeysAndNetwork(t *testing.T) {
 	assert.Equal(t, []string{cfg.DistributionAccount}, p.Accounts)
 }
 
+func TestMainnetAssetsAreLive(t *testing.T) {
+	cfg := testConfig()
+	cfg.Network = config.Mainnet
+	var p parsed
+	_, err := burnttoml.Decode(toml.Render(cfg), &p)
+	require.NoError(t, err)
+	for _, c := range p.Currencies {
+		assert.Equal(t, "live", c.Status)
+	}
+}
+
 func TestCurrenciesAreTestAssets(t *testing.T) {
 	_, p := render(t)
 	require.Len(t, p.Currencies, 2)

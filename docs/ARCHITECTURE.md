@@ -96,7 +96,7 @@ Built in Tranche 1:
 - Customer callback (`GET/PUT/DELETE /customer`) with Dojah BVN or NIN verification and sanctions and PEP screening. Customer data is encrypted at rest.
 - SEP-24 withdrawal page that verifies SAP's interactive token and calls `request_onchain_funds`.
 - SEP-6 withdrawals started by the processor once KYC has passed.
-- Payout processor using the Platform API (`request_onchain_funds`, `notify_offchain_funds_pending`, `notify_offchain_funds_sent`, `notify_transaction_error`, `notify_transaction_on_hold`) and Slimepay core's anchor payout API, which pays through the SafeHaven sandbox.
+- Payout processor using the Platform API (`request_onchain_funds`, `notify_offchain_funds_pending`, `notify_offchain_funds_sent`, `notify_transaction_error`, `notify_transaction_on_hold`) and Slimepay core's anchor payout API.
 - Reconciliation v1 and alerts, audit log.
 - Testnet deployment on Railway (see the [testnet runbook](TESTNET_RUNBOOK.md)), and `stellar.toml` served on the home domain by the Slimepay web app, which proxies SAP.
 

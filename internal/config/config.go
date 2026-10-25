@@ -12,15 +12,25 @@ import (
 )
 
 const (
-	TestnetPassphrase  = "Test SDF Network ; September 2015"
-	TestnetHorizonURL  = "https://horizon-testnet.stellar.org"
-	TestnetUSDCIssuer  = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
-	DojahSandboxURL    = "https://sandbox.dojah.io"
+	Testnet = "testnet"
+	Mainnet = "mainnet"
+
+	TestnetPassphrase = "Test SDF Network ; September 2015"
+	TestnetHorizonURL = "https://horizon-testnet.stellar.org"
+	TestnetUSDCIssuer = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+
+	MainnetPassphrase = "Public Global Stellar Network ; September 2015"
+	MainnetHorizonURL = "https://horizon.stellar.org"
+	MainnetUSDCIssuer = "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+
+	DojahURL = "https://api.dojah.io"
+
 	minSharedSecretLen = 32
 )
 
 type Config struct {
-	Port string
+	Port    string
+	Network string
 
 	NetworkPassphrase   string
 	HorizonURL          string
@@ -55,9 +65,9 @@ type Config struct {
 	AlertWebhookURL   string
 }
 
-// Load reads the Business Server configuration from the environment. The
-// anchor runs on testnet only for the SCF tranches, so any other network is
-// refused rather than silently accepted.
+// Load reads the Business Server configuration from the environment.
+// STELLAR_NETWORK is testnet (the default) or mainnet. Dojah is only used on
+// mainnet, so its settings are only required there.
 func Load() (*Config, error) {
 	var missing []string
 	req := func(key string) string {
@@ -68,15 +78,22 @@ func Load() (*Config, error) {
 		return v
 	}
 
-	if n := strings.ToLower(getEnv("STELLAR_NETWORK", "testnet")); n != "testnet" {
-		return nil, fmt.Errorf("STELLAR_NETWORK must be testnet, got %q", n)
+	network := strings.ToLower(getEnv("STELLAR_NETWORK", Testnet))
+	passphrase, horizon, usdc := TestnetPassphrase, TestnetHorizonURL, TestnetUSDCIssuer
+	switch network {
+	case Testnet:
+	case Mainnet:
+		passphrase, horizon, usdc = MainnetPassphrase, MainnetHorizonURL, MainnetUSDCIssuer
+	default:
+		return nil, fmt.Errorf("STELLAR_NETWORK must be testnet or mainnet, got %q", network)
 	}
 
 	cfg := &Config{
 		Port:                 getEnv("PORT", "8081"),
-		NetworkPassphrase:    TestnetPassphrase,
-		HorizonURL:           getEnv("HORIZON_URL", TestnetHorizonURL),
-		USDCIssuer:           getEnv("USDC_ISSUER", TestnetUSDCIssuer),
+		Network:              network,
+		NetworkPassphrase:    passphrase,
+		HorizonURL:           getEnv("HORIZON_URL", horizon),
+		USDCIssuer:           getEnv("USDC_ISSUER", usdc),
 		SigningKey:           req("SEP10_SIGNING_KEY"),
 		DistributionAccount:  req("DISTRIBUTION_ACCOUNT"),
 		HomeDomain:           req("HOME_DOMAIN"),
@@ -87,12 +104,16 @@ func Load() (*Config, error) {
 		InteractiveJWTSecret: req("SEP24_INTERACTIVE_JWT_SECRET"),
 		DatabaseURL:          req("DATABASE_URL"),
 		DatabaseName:         getEnv("DATABASE_NAME", "stellar_anchor"),
-		DojahBaseURL:         strings.TrimRight(getEnv("DOJAH_BASE_URL", DojahSandboxURL), "/"),
-		DojahAppID:           req("DOJAH_APP_ID"),
-		DojahSecretKey:       req("DOJAH_SECRET_KEY"),
+		DojahBaseURL:         strings.TrimRight(getEnv("DOJAH_BASE_URL", DojahURL), "/"),
+		DojahAppID:           strings.TrimSpace(os.Getenv("DOJAH_APP_ID")),
+		DojahSecretKey:       strings.TrimSpace(os.Getenv("DOJAH_SECRET_KEY")),
 		CoreAPIURL:           strings.TrimRight(req("CORE_API_URL"), "/"),
 		CoreAPISecret:        req("CORE_API_SECRET"),
 		AlertWebhookURL:      strings.TrimSpace(os.Getenv("ALERT_WEBHOOK_URL")),
+	}
+	if network == Mainnet {
+		req("DOJAH_APP_ID")
+		req("DOJAH_SECRET_KEY")
 	}
 	encKey := req("DATA_ENCRYPTION_KEY")
 	usdcRate := req("NGN_PER_USDC")

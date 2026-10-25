@@ -128,6 +128,7 @@ type fakeCore struct {
 	rejectPay   bool
 	rejectName  bool
 	amountDrift string
+	lastNetwork string
 }
 
 func newCore() *fakeCore {
@@ -146,6 +147,7 @@ func (c *fakeCore) ResolveAccount(context.Context, string, string) (string, erro
 }
 
 func (c *fakeCore) Pay(_ context.Context, req payout.Request) (*payout.Payout, error) {
+	c.lastNetwork = req.Network
 	if c.payErr != nil {
 		return nil, c.payErr
 	}
@@ -275,7 +277,7 @@ func newEnv(txs ...*sap.Transaction) *env {
 		}},
 		alerts: &alerts{},
 	}
-	e.svc = NewService(e.store, e.platform, e.customers, e.core, audit.Nop{}, assetUSDC, big.NewRat(1500, 1), big.NewRat(250, 1))
+	e.svc = NewService(e.store, e.platform, e.customers, e.core, audit.Nop{}, "testnet", assetUSDC, big.NewRat(1500, 1), big.NewRat(250, 1))
 	e.proc = NewProcessor(e.svc, e.chain, e.alerts, distribution)
 	return e
 }

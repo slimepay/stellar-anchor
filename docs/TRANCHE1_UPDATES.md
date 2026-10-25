@@ -22,8 +22,8 @@ Highlights of the SCF #45 Tranche 1 work. The design is in the [ARCHITECTURE doc
 
 ## Payouts
 
-- Slimepay core has an internal anchor payout API with its own SafeHaven credentials.
-- It only runs against the SafeHaven sandbox. Production URLs are refused.
+- Slimepay core has an internal anchor payout API.
+- Testnet and mainnet are selected per service, and core refuses a payout for the other network.
 - One payout per transaction, enforced by a unique index and a conditional claim, so retries and crashes never pay twice.
 
 ## Reconciliation

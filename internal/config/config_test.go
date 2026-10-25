@@ -44,17 +44,41 @@ func TestLoad(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, TestnetPassphrase, cfg.NetworkPassphrase)
 	assert.Equal(t, TestnetUSDCIssuer, cfg.USDCIssuer)
-	assert.Equal(t, DojahSandboxURL, cfg.DojahBaseURL)
+	assert.Equal(t, Testnet, cfg.Network)
+	assert.Equal(t, DojahURL, cfg.DojahBaseURL)
 	assert.Equal(t, "http://platform:8085", cfg.PlatformURL)
 	assert.Equal(t, "250.50", cfg.NGNPerXLM.FloatString(2))
 	assert.Equal(t, "15s", cfg.PollInterval.String())
 }
 
-func TestLoadRefusesMainnet(t *testing.T) {
+func TestLoadMainnet(t *testing.T) {
 	validEnv(t)
 	t.Setenv("STELLAR_NETWORK", "mainnet")
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, Mainnet, cfg.Network)
+	assert.Equal(t, MainnetPassphrase, cfg.NetworkPassphrase)
+	assert.Equal(t, MainnetHorizonURL, cfg.HorizonURL)
+	assert.Equal(t, MainnetUSDCIssuer, cfg.USDCIssuer)
+
+	t.Setenv("DOJAH_APP_ID", "")
+	_, err = Load()
+	assert.ErrorContains(t, err, "DOJAH_APP_ID", "Dojah is required on mainnet")
+}
+
+func TestLoadTestnetWithoutDojah(t *testing.T) {
+	validEnv(t)
+	t.Setenv("DOJAH_APP_ID", "")
+	t.Setenv("DOJAH_SECRET_KEY", "")
 	_, err := Load()
-	assert.ErrorContains(t, err, "testnet")
+	assert.NoError(t, err)
+}
+
+func TestLoadRejectsUnknownNetwork(t *testing.T) {
+	validEnv(t)
+	t.Setenv("STELLAR_NETWORK", "futurenet")
+	_, err := Load()
+	assert.ErrorContains(t, err, "STELLAR_NETWORK")
 }
 
 func TestLoadRejectsBadValues(t *testing.T) {
@@ -77,10 +101,10 @@ func TestLoadRejectsBadValues(t *testing.T) {
 
 func TestLoadListsMissing(t *testing.T) {
 	validEnv(t)
-	t.Setenv("DOJAH_APP_ID", "")
+	t.Setenv("DATABASE_URL", "")
 	t.Setenv("CORE_API_SECRET", "")
 	_, err := Load()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "DOJAH_APP_ID")
+	assert.Contains(t, err.Error(), "DATABASE_URL")
 	assert.Contains(t, err.Error(), "CORE_API_SECRET")
 }

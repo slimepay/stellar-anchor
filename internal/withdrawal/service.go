@@ -66,10 +66,11 @@ type Service struct {
 	core      payout.Core
 	audit     audit.Logger
 	rates     map[string]*big.Rat
+	network   string
 	now       func() time.Time
 }
 
-func NewService(store Store, platform Platform, customers Customers, core payout.Core, auditLog audit.Logger, usdcAsset string, ngnPerUSDC, ngnPerXLM *big.Rat) *Service {
+func NewService(store Store, platform Platform, customers Customers, core payout.Core, auditLog audit.Logger, network, usdcAsset string, ngnPerUSDC, ngnPerXLM *big.Rat) *Service {
 	return &Service{
 		store:     store,
 		platform:  platform,
@@ -77,6 +78,7 @@ func NewService(store Store, platform Platform, customers Customers, core payout
 		core:      core,
 		audit:     auditLog,
 		rates:     map[string]*big.Rat{usdcAsset: ngnPerUSDC, AssetXLM: ngnPerXLM},
+		network:   network,
 		now:       time.Now,
 	}
 }

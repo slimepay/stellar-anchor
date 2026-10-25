@@ -22,6 +22,10 @@ func Handler(cfg *config.Config) http.HandlerFunc {
 // where SAP's SEP server runs.
 func Render(cfg *config.Config) string {
 	sep := "https://" + cfg.WebAuthDomain
+	status := "test"
+	if cfg.Network == config.Mainnet {
+		status = "live"
+	}
 	return fmt.Sprintf(`NETWORK_PASSPHRASE="%s"
 HORIZON_URL="%s"
 ACCOUNTS=["%s"]
@@ -40,7 +44,7 @@ ORG_TWITTER="slimepay"
 [[CURRENCIES]]
 code="USDC"
 issuer="%s"
-status="test"
+status="%s"
 is_asset_anchored=true
 anchor_asset_type="fiat"
 anchor_asset="USD"
@@ -49,7 +53,7 @@ desc="USD Coin. Withdraw to a Nigerian bank account in naira."
 
 [[CURRENCIES]]
 code="native"
-status="test"
+status="%s"
 is_asset_anchored=false
 anchor_asset_type="crypto"
 display_decimals=7
@@ -62,5 +66,7 @@ desc="Stellar Lumens. Withdraw to a Nigerian bank account in naira."
 		sep, sep, sep, sep,
 		cfg.HomeDomain,
 		cfg.USDCIssuer,
+		status,
+		status,
 	)
 }

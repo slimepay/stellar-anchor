@@ -39,6 +39,7 @@ type Request struct {
 	BankCode      string `json:"bank_code"`
 	AccountNumber string `json:"account_number"`
 	Narration     string `json:"narration,omitempty"`
+	Network       string `json:"network"`
 }
 
 type Payout struct {

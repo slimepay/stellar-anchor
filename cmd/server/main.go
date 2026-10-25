@@ -66,9 +66,13 @@ func main() {
 	core := payout.NewClient(cfg.CoreAPIURL, cfg.CoreAPISecret)
 	horizon := chain.NewHorizon(cfg.HorizonURL)
 
-	customers := customer.NewService(customerStore, kyc.NewDojah(cfg.DojahBaseURL, cfg.DojahAppID, cfg.DojahSecretKey), auditLog)
+	var verifier kyc.Verifier = kyc.Testnet{}
+	if cfg.Network == config.Mainnet {
+		verifier = kyc.NewDojah(cfg.DojahBaseURL, cfg.DojahAppID, cfg.DojahSecretKey)
+	}
+	customers := customer.NewService(customerStore, verifier, auditLog)
 	withdrawals := withdrawal.NewService(withdrawalStore, platform, customers, core, auditLog,
-		"stellar:USDC:"+cfg.USDCIssuer, cfg.NGNPerUSDC, cfg.NGNPerXLM)
+		cfg.Network, "stellar:USDC:"+cfg.USDCIssuer, cfg.NGNPerUSDC, cfg.NGNPerXLM)
 	processor := withdrawal.NewProcessor(withdrawals, horizon, alerts, cfg.DistributionAccount)
 	reconciler := withdrawal.NewReconciler(processor, withdrawal.NewMongoCursorStore(mongoDB))
 
@@ -106,6 +110,7 @@ func main() {
 
 	log.Info().
 		Str("addr", srv.Addr).
+		Str("network", cfg.Network).
 		Str("home_domain", cfg.HomeDomain).
 		Str("web_auth_domain", cfg.WebAuthDomain).
 		Str("distribution_account", cfg.DistributionAccount).

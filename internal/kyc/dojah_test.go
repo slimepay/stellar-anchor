@@ -136,6 +136,12 @@ func TestScreeningOutcomes(t *testing.T) {
 	}
 }
 
+func TestTestnetAccepts(t *testing.T) {
+	dec, err := Testnet{}.Verify(context.Background(), bvnIdentity())
+	require.NoError(t, err)
+	assert.Equal(t, StatusAccepted, dec.Status)
+}
+
 func TestUnknownIDType(t *testing.T) {
 	dec, err := NewDojah("http://unused", "a", "b").Verify(context.Background(), Identity{IDType: "passport"})
 	require.NoError(t, err)

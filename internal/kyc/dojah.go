@@ -45,6 +45,12 @@ type Verifier interface {
 	Verify(ctx context.Context, id Identity) (Decision, error)
 }
 
+type Testnet struct{}
+
+func (Testnet) Verify(context.Context, Identity) (Decision, error) {
+	return Decision{Status: StatusAccepted}, nil
+}
+
 type Dojah struct {
 	baseURL   string
 	appID     string

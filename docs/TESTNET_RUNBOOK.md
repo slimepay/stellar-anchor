@@ -11,7 +11,7 @@ The anchor runs on Railway, in the `slimepay` project, `production` environment.
 | `anchor-platform` | SAP 5.0.0 (`stellar/anchor-platform:5.0.0`): SEP server, platform server, payment observer | `https://anchor.slimepay.com` | 8080 |
 | `stellar-anchor` | Business Server (this repo) | `https://stellar-anchor-production.up.railway.app` | 8081 |
 | `Postgres` | SAP's database (schema `anchor_platform`) | private | |
-| `server` | Slimepay core, which pays out through the SafeHaven sandbox | `https://server.slimepay.com` | |
+| `server` | Slimepay core, which pays the naira out | `https://server.slimepay.com` | |
 | `client` | Slimepay web app, which proxies `/.well-known/stellar.toml` | `https://slimepay.com` | |
 
 The services talk to each other over Railway's private network:
@@ -51,14 +51,13 @@ CALLBACK_API_SECRET=<shared with SAP>
 SEP24_INTERACTIVE_JWT_SECRET=<shared with SAP>
 DATABASE_URL=<MongoDB>
 DATA_ENCRYPTION_KEY=<base64, 32 bytes>
-DOJAH_BASE_URL=https://sandbox.dojah.io
-DOJAH_APP_ID=<Dojah sandbox>
-DOJAH_SECRET_KEY=<Dojah sandbox>
 CORE_API_URL=https://server.slimepay.com
 CORE_API_SECRET=<same as ANCHOR_API_SECRET on core>
 NGN_PER_USDC=1500
 NGN_PER_XLM=250
 ```
+
+`STELLAR_NETWORK` defaults to testnet. On mainnet `DOJAH_APP_ID` and `DOJAH_SECRET_KEY` are also required.
 
 Its public domain must point at port **8081**. A healthy start logs `business server ready`.
 
@@ -98,16 +97,13 @@ On `server`:
 
 ```
 ANCHOR_API_SECRET=<same as CORE_API_SECRET>
-ANCHOR_SAFEHAVEN_BASE_URL=https://api.sandbox.safehavenmfb.com
-ANCHOR_SAFEHAVEN_CLIENT_ID=<SafeHaven sandbox>
-ANCHOR_SAFEHAVEN_CLIENT_ASSERTION=<SafeHaven sandbox>
-ANCHOR_SAFEHAVEN_ACCOUNT_NUMBER=<SafeHaven sandbox account>
+ANCHOR_NETWORK=testnet
 STELLAR_ANCHOR_URL=https://anchor.slimepay.com
 ```
 
 On `client`: `STELLAR_ANCHOR_URL=https://anchor.slimepay.com`.
 
-The anchor payout API answers 503 until every SafeHaven value is set, and refuses SafeHaven's live API. Until then the bank list on the withdrawal page is empty.
+`ANCHOR_NETWORK` must match `STELLAR_NETWORK` on the Business Server; core refuses payouts for the other network. On mainnet, payouts use the `SAFEHAVEN_*` credentials already on the server.
 
 ## 5. Checks
 
@@ -126,7 +122,7 @@ Wallets must send the SEP-24 withdraw request as JSON or multipart form data. SA
 npx -y @stellar/anchor-tests --home-domain https://slimepay.com --seps 1 10 12 6 24 --sep-config sep-config.json
 ```
 
-`sep-config.json` gives the suite SEP-12 customers. Dojah's sandbox BVN `22222222222` passes KYC:
+`sep-config.json` gives the suite SEP-12 customers:
 
 ```json
 {
@@ -154,12 +150,12 @@ Save the report as evidence.
 
 1. In a testnet wallet that supports SEP-24 (for example the [Stellar demo wallet](https://demo-wallet.stellar.org)), add `USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` with home domain `slimepay.com`.
 2. Fund the wallet with testnet USDC and start a SEP-24 withdrawal.
-3. On the Slimepay page, fill in the Dojah sandbox identity and a SafeHaven sandbox bank account.
+3. On the Slimepay page, fill in an identity and pick a bank account.
 4. Let the wallet send the payment.
-5. Within a few seconds the `stellar-anchor` log shows the payout, SAP marks the transaction `completed`, and the transfer appears on the SafeHaven sandbox dashboard.
+5. Within a few seconds the `stellar-anchor` log shows the payout and SAP marks the transaction `completed`.
 6. After the next reconciliation run, the withdrawal's `reconcile` field in MongoDB is `ok`.
 
-Keep the Stellar transaction hash, the SAP transaction ID and the SafeHaven reference as evidence.
+Keep the Stellar transaction hash, the SAP transaction ID and the payout reference as evidence.
 
 ## Running it on one machine instead
 
@@ -173,4 +169,4 @@ docker compose up -d --build
 
 ## When something is on hold
 
-An alert names the transaction and the reason. Check the payment on [stellar.expert](https://stellar.expert/explorer/testnet) and the payout on the SafeHaven dashboard, then resolve it in SAP: complete it, or refund the user.
+An alert names the transaction and the reason. Check the payment on [stellar.expert](https://stellar.expert/explorer/testnet) and the payout in core, then resolve it in SAP: complete it, or refund the user.

@@ -111,6 +111,7 @@ func (p *Processor) payOut(ctx context.Context, tx *sap.Transaction) error {
 		BankCode:      w.BankCode,
 		AccountNumber: w.AccountNumber,
 		Narration:     "Slimepay withdrawal " + shortID(tx.ID),
+		Network:       p.svc.network,
 	})
 	var rejected *payout.RejectedError
 	if errors.As(err, &rejected) {
