@@ -63,12 +63,12 @@ Screenshots of the interactive page: [withdrawal page](evidence/tranche1/1-withd
 
 Withdrawal 1 exposed a bug. SAP's observer matched the payment within seconds, but the Business Server could not list funded transactions: SAP 5.0's JSON-RPC `get_transactions` has no default for `order_by` and `order` and returns -32603 without them. Commit `29f1286` sends both. After it deployed, withdrawal 1 completed by itself, and withdrawal 2 then ran from start to `completed` with no intervention, the payout following the payment within seconds.
 
-## How testnet differs from production
+## Testnet and mainnet
 
-The deployment runs on testnet (`STELLAR_NETWORK=testnet` on the Business Server, `ANCHOR_NETWORK=testnet` on core).
+The deployment runs on testnet (`STELLAR_NETWORK=testnet` on the Business Server, `ANCHOR_NETWORK=testnet` on core). No real money or real identities are used on testnet, so two steps are simulated:
 
-- **KYC.** On testnet the Business Server accepts customers without calling Dojah, so testers never submit real identity data. The Dojah integration (BVN and NIN lookup, name and date of birth match, sanctions and PEP screening, manual review on a possible match) is in `internal/kyc` and covered by its unit tests.
-- **Payout.** On testnet core's test bank resolves bank accounts (the page shows "ACCOUNT 6789") and settles the payout without moving real naira. SafeHaven is only called when core runs with `ANCHOR_NETWORK=mainnet`. Every payout carries its network and core refuses a mismatch, so testnet withdrawals cannot reach the production payout path.
+- **Dojah verification is simulated.** The Business Server accepts the customer without calling Dojah, so testers never submit real identity data. On mainnet the same code calls Slimepay's production Dojah integration (BVN and NIN lookup, name and date of birth match, sanctions and PEP screening, manual review on a possible match). That integration is in `internal/kyc` and covered by its unit tests.
+- **The SafeHaven payout is simulated.** Core resolves the bank account (the page shows "ACCOUNT 6789") and records the naira payout as sent without moving money. On mainnet core pays through SafeHaven, Slimepay's production payout provider. Every payout carries its network and core refuses a mismatch, so testnet withdrawals cannot reach the mainnet payout path.
 
 Everything else is the production code path: SAP's SEP endpoints and observer, the Business Server's interactive page, ledger checks against Horizon, the payout API in core with its once-only guarantee, and the Platform API calls that move the transaction to `completed`.
 

@@ -18,10 +18,10 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 | Customers (encrypted), withdrawal ledger, reconciliation results, audit log | Business Server (MongoDB) |
 | Watching the distribution account for incoming payments | SAP payment observer |
 | Memo assignment for incoming payments | SAP (`deposit_info_generator_type: self`, random 64 bit memo IDs) |
-| KYC data and checks | Business Server (this repo). Calls Dojah when `STELLAR_NETWORK=mainnet`; on testnet customers are accepted without a Dojah call, so no real identity data is needed |
+| KYC data and checks | Business Server (this repo). Mainnet: Slimepay's production Dojah integration. Testnet: the Dojah verification is simulated |
 | Quotes and fees | Business Server. Tranche 1 uses a configured naira rate with no fee; SEP-38 firm quotes come in Tranche 2 |
 | Interactive withdrawal UI | Business Server page at `/sep24/interactive` (Tranche 1); the full UI with quote acceptance is Tranche 2 |
-| Naira payout | Slimepay core backend. With `ANCHOR_NETWORK=mainnet` it pays through SafeHaven; on testnet core's test bank resolves and settles payouts without moving real naira |
+| Naira payout | Slimepay core backend. Mainnet: SafeHaven, Slimepay's production payout provider. Testnet: the SafeHaven payout is simulated |
 | Reconciliation | Business Server |
 
 ### Components
@@ -40,7 +40,7 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
    |            |
    | Dojah      | core API
    v            v
- KYC         Slimepay core backend --> SafeHaven (NGN payout, mainnet)
+ KYC         Slimepay core backend --> SafeHaven (NGN payout; simulated on testnet)
 
  SAP payment observer --> watches the distribution account on Horizon
 ```
@@ -80,10 +80,23 @@ Sized for a five person team at current volume:
 - SAP events stay disabled at first. The Business Server polls the Platform API for transactions that need action. A queue (Kafka or SQS) is only added if polling stops being enough.
 - Logs and alerts go to the existing Slimepay monitoring. No separate observability stack.
 
+### Testnet and mainnet
+
+The SCF tranches run on testnet, where no real money or identities are used. Two steps are simulated there: the Dojah verification (the Business Server accepts the customer without calling Dojah) and the SafeHaven payout (core resolves the account and records the payout as sent without moving money). On mainnet the same code calls Slimepay's production Dojah and SafeHaven integrations. Core refuses any payout whose network differs from its own, so testnet withdrawals cannot reach the production payout path.
+
+## Regulatory position (VASP)
+
+Slimepay operates through Slimehaven Limited (CAC RC: 8164075). Nigeria regulates virtual asset service providers, and an anchor that moves customer funds between Stellar assets and Nigerian bank accounts is likely to fall under that regime when it goes live. Slimepay's existing production service already runs identity checks through Dojah and payouts through SafeHaven.
+
+- **Testnet (SCF scope).** No real funds or real customer identity data are used.
+- **Before mainnet (self funded).** Slimepay will assess its VASP registration requirements with the SEC and the CBN and complete any required filings before any mainnet launch, including before listing as an anchor.
+- **Owners.** Lamine-cisse Ekezie (Founder and CEO) owns regulatory filings and compliance. Muhammad Jamil owns the technical controls: KYC, sanctions screening and the audit log.
+
 ## Ownership
 
 | Area | Owner |
 |---|---|
+| Regulatory filings and compliance (VASP) | Lamine-cisse Ekezie (Founder and CEO) |
 | SAP deployment and configuration, Business Server, reconciliation | Muhammad Jamil (Lead Blockchain Engineer) |
 | Interactive withdrawal UI, Stellar Wallets Kit, merchant checkout | Tammy Smith (Product Engineer) |
 | Transaction monitoring and fraud alerts on reconciliation output | Christian Divinefavour (Data Scientist) |
@@ -106,5 +119,5 @@ Tranche 2: SEP-38 quotes through the rate callback, the full interactive UI, SEP
 ## Out of scope
 
 - **Mainnet.** Self funded, after the SCF tranches.
-- **Stellar Disbursement Platform.** Dropped. Payouts go to bank accounts through SafeHaven, so there is no recipient wallet and no reason for an extra on-chain hop.
+- **Stellar Disbursement Platform.** Dropped, following reviewer feedback. Payouts go to bank accounts through SafeHaven, so there is no recipient wallet and no reason for an extra on-chain hop. The later tranche that referenced SDP will be rescoped with SCF.
 - **Deposits** (naira to Stellar assets).

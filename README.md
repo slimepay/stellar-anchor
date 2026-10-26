@@ -4,9 +4,9 @@ Slimepay's Stellar anchor. Users send USDC or XLM on Stellar and receive naira i
 
 The anchor runs on the [Stellar Anchor Platform](https://github.com/stellar/anchor-platform) (SAP). SAP serves every SEP endpoint wallets talk to (SEP-1, 10, 12, 6 and 24), keeps the transaction records and watches the ledger for incoming payments. This repository is the **Business Server** behind it: the part that is specific to Slimepay.
 
-- **KYC.** SAP's customer callback (`/customer`), backed by Dojah on mainnet: BVN or NIN check plus sanctions and PEP screening. Testnet accepts customers without a Dojah call.
+- **KYC.** SAP's customer callback (`/customer`). On mainnet it uses Slimepay's production Dojah integration: BVN or NIN check plus sanctions and PEP screening. On testnet the Dojah verification is simulated.
 - **SEP-24 withdrawal page.** The interactive page SAP sends wallets to. The user confirms identity and bank account, picks an amount and gets a naira quote.
-- **Payouts.** Polls SAP for funded withdrawals, checks the payment against the ledger, asks Slimepay core to pay the naira out (SafeHaven on mainnet, a test bank on testnet), then reports back to SAP.
+- **Payouts.** Polls SAP for funded withdrawals, checks the payment against the ledger, asks Slimepay core to pay the naira out (through SafeHaven on mainnet, simulated on testnet), then reports back to SAP.
 - **Reconciliation.** Compares SAP, the ledger and core for every finished withdrawal, and flags payments nobody can explain.
 
 Only withdrawals are offered. The anchor runs on **testnet** during the SCF tranches.
@@ -31,11 +31,16 @@ Anything that does not add up puts the transaction on hold (`notify_transaction_
 
 Core keys every payout on the SAP transaction ID, with a unique index, and claims it with a conditional update before calling SafeHaven. Calling it again, at the same time or after a crash, returns the same payout and never sends money twice. If SafeHaven does not answer, the payout is held for someone to check rather than retried.
 
-### Network
+### Testnet and mainnet
 
-The SCF deliverables run on **testnet**, the default. On testnet the Business Server accepts customers without calling Dojah, and core's test bank resolves accounts and settles payouts without moving real naira.
+The SCF deliverables run on **testnet**. No real money and no real identities are used there, so two steps are simulated on testnet:
 
-`STELLAR_NETWORK` on the Business Server and `ANCHOR_NETWORK` on core select the network. Every payout carries its network and core refuses one for a different network, so testnet withdrawals can never reach the production payout path. Mainnet (Dojah plus SafeHaven) is outside the SCF tranches.
+- **Dojah verification.** The Business Server accepts the customer without calling Dojah.
+- **SafeHaven payout.** Slimepay core resolves the bank account and records the naira payout as sent. SafeHaven is not called and no money moves.
+
+Everything else is the production code path: SAP's SEP endpoints and payment observer, the interactive page, the ledger checks, the payout API in core with its once-only guarantee, and the Platform API calls that complete the transaction.
+
+On **mainnet** the same code uses Slimepay's production Dojah and SafeHaven integrations, the ones the live Slimepay app already uses. `STELLAR_NETWORK` on the Business Server and `ANCHOR_NETWORK` on core select the network. Every payout carries its network and core refuses one for a different network, so a testnet withdrawal can never reach the production payout path. Mainnet is outside the SCF tranches.
 
 ---
 

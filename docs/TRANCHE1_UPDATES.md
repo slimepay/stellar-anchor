@@ -10,7 +10,7 @@ Highlights of the SCF #45 Tranche 1 work. The design is in the [ARCHITECTURE doc
 
 ## KYC
 
-- SAP's customer callback is backed by Dojah: BVN or NIN checked against name and date of birth, then sanctions and PEP screening. The Dojah integration is covered by unit tests; on the testnet deployment customers are accepted without a Dojah call, so testers never submit real identity data.
+- SAP's customer callback is backed by Dojah: BVN or NIN checked against name and date of birth, then sanctions and PEP screening. On mainnet this is Slimepay's production Dojah integration. On testnet the Dojah verification is simulated, so testers never submit real identity data.
 - A possible screening match goes to manual review. A confirmed match is rejected.
 - Customer data is encrypted at rest (AES-256-GCM). The audit log records decisions without personal data.
 
@@ -23,7 +23,7 @@ Highlights of the SCF #45 Tranche 1 work. The design is in the [ARCHITECTURE doc
 ## Payouts
 
 - Slimepay core has an internal anchor payout API.
-- On testnet, core's test bank resolves bank accounts and settles payouts without moving real naira. SafeHaven is only called when core runs with `ANCHOR_NETWORK=mainnet`, which is out of scope for the SCF tranches.
+- On mainnet core pays through SafeHaven, Slimepay's production payout provider. On testnet the SafeHaven payout is simulated: core resolves the bank account and records the payout as sent, but no money moves.
 - Core refuses a payout whose network differs from its own, so testnet withdrawals can never reach the mainnet payout path.
 - One payout per transaction, enforced by a unique index and a conditional claim, so retries and crashes never pay twice.
 
