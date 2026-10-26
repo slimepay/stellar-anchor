@@ -106,7 +106,7 @@ func (s *Service) Get(ctx context.Context, q Query) (*Response, error) {
 		return nil, err
 	}
 	if c.KYCPending {
-		s.verify(ctx, c)
+		s.settle(ctx, c)
 		if err := s.store.Save(ctx, c); err != nil {
 			return nil, err
 		}
@@ -158,12 +158,7 @@ func (s *Service) Put(ctx context.Context, req PutRequest) (*Response, error) {
 		}
 	}
 
-	switch {
-	case len(missingFields(c.Fields)) > 0:
-		c.Status, c.Message, c.KYCPending = StatusNeedsInfo, "", false
-	case identityChanged(c) || c.KYCPending:
-		s.verify(ctx, c)
-	}
+	s.settle(ctx, c)
 
 	c.UpdatedAt = s.now().UTC()
 	if err := s.store.Save(ctx, c); err != nil {
@@ -226,6 +221,41 @@ func (s *Service) verify(ctx context.Context, c *Customer) {
 		c.Status, c.Message = StatusProcessing, dec.Reason
 	}
 	s.audit.Record(ctx, audit.Entry{Action: "kyc.decision", CustomerID: c.ID, Detail: map[string]string{"status": c.Status, "reason": dec.Reason}})
+}
+
+// settle runs KYC as soon as the identity fields are complete, so identity
+// can be verified before the bank details are known. The customer is only
+// ACCEPTED once every required field is present.
+func (s *Service) settle(ctx context.Context, c *Customer) {
+	switch {
+	case !hasAll(c.Fields, identityFields):
+		c.Status, c.Message, c.KYCPending = StatusNeedsInfo, "", false
+	case identityChanged(c) || c.KYCPending:
+		s.verify(ctx, c)
+	case c.Status == StatusNeedsInfo:
+		// Identity was accepted earlier and only other fields were missing.
+		c.Status = StatusAccepted
+	}
+	if c.Status == StatusAccepted && len(missingFields(c.Fields)) > 0 {
+		c.Status = StatusNeedsInfo
+	}
+}
+
+// IdentityVerified reports whether KYC accepted the identity fields as they are now.
+func (c *Customer) IdentityVerified() bool {
+	if c == nil || c.KYCPending || identityChanged(c) {
+		return false
+	}
+	return c.Status == StatusAccepted || c.Status == StatusNeedsInfo
+}
+
+func hasAll(have map[string]string, names []string) bool {
+	for _, n := range names {
+		if have[n] == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func identityChanged(c *Customer) bool {

@@ -139,6 +139,31 @@ func TestPutPartialThenComplete(t *testing.T) {
 	}
 }
 
+func TestIdentityVerifiedBeforeBankDetails(t *testing.T) {
+	svc, store, v := setup()
+	ctx := context.Background()
+	identity := fullFields()
+	delete(identity, "bank_account_number")
+	delete(identity, "bank_number")
+
+	resp, err := svc.Put(ctx, PutRequest{Account: "GABC", Fields: identity})
+	require.NoError(t, err)
+	assert.Equal(t, StatusNeedsInfo, resp.Status, "bank details are still missing")
+	assert.Equal(t, 1, v.calls, "identity is checked on its own")
+	assert.True(t, store.byID[resp.ID].IdentityVerified())
+
+	resp, err = svc.Put(ctx, PutRequest{ID: resp.ID, Fields: map[string]string{"bank_number": "000013", "bank_account_number": "0123456789"}})
+	require.NoError(t, err)
+	assert.Equal(t, StatusAccepted, resp.Status)
+	assert.Equal(t, 1, v.calls)
+
+	v.decision = kyc.Decision{Status: kyc.StatusRejected}
+	resp, err = svc.Put(ctx, PutRequest{ID: resp.ID, Fields: map[string]string{"last_name": "Obiora"}})
+	require.NoError(t, err)
+	assert.Equal(t, StatusRejected, resp.Status)
+	assert.False(t, store.byID[resp.ID].IdentityVerified())
+}
+
 func TestKYCOnlyRerunsWhenIdentityChanges(t *testing.T) {
 	svc, _, v := setup()
 	ctx := context.Background()

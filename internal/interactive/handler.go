@@ -1,6 +1,8 @@
 // Package interactive serves the SEP-24 withdrawal page that SAP sends wallets
-// to. The user confirms their identity and bank account, chooses an amount,
-// and the Business Server asks SAP for the on-chain payment.
+// to. A customer whose identity is not verified yet sees the identity step
+// first. A verified customer goes straight to the withdrawal form, chooses an
+// amount and bank account, and the Business Server asks SAP for the on-chain
+// payment.
 package interactive
 
 import (
@@ -55,7 +57,9 @@ func NewHandler(secret string, platform Platform, customers Customers, withdrawa
 	return &Handler{secret: secret, platform: platform, customers: customers, withdrawals: withdrawals, banks: banks}
 }
 
-type formData struct {
+const stepIdentity = "identity"
+
+type pageData struct {
 	TransactionID string
 	Token         string
 	AssetCode     string
@@ -64,6 +68,7 @@ type formData struct {
 	Banks         []payout.Bank
 	Values        map[string]string
 	HasIDNumber   bool
+	Name          string
 	Error         string
 }
 
@@ -74,7 +79,10 @@ type resultData struct {
 	Asset   string
 }
 
-var formFields = []string{"first_name", "last_name", "email_address", "birth_date", "id_type", "id_number", "bank_number", "bank_account_number", "mobile_number"}
+var (
+	identityForm = []string{"first_name", "last_name", "email_address", "birth_date", "id_type", "id_number", "mobile_number"}
+	bankForm     = []string{"bank_number", "bank_account_number"}
+)
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	setSecurityHeaders(w)
@@ -88,56 +96,70 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) session(w http.ResponseWriter, r *http.Request, txID, token string) (*auth.InteractiveClaims, *sap.Transaction, bool) {
+type session struct {
+	claims  *auth.InteractiveClaims
+	tx      *sap.Transaction
+	token   string
+	account string
+	memo    string
+}
+
+func (h *Handler) session(w http.ResponseWriter, r *http.Request, txID, token string) (*session, bool) {
 	claims, err := auth.ParseInteractive(token, h.secret, txID)
 	if err != nil {
 		h.result(w, http.StatusUnauthorized, resultData{Title: "Session expired", Message: "Start the withdrawal again from your wallet."})
-		return nil, nil, false
+		return nil, false
 	}
 	tx, err := h.platform.GetTransaction(r.Context(), txID)
 	if err != nil {
 		log.Error().Err(err).Str("tx", txID).Msg("interactive: failed to load transaction")
 		h.result(w, http.StatusBadGateway, resultData{Title: "Something went wrong", Message: "Please try again in a moment."})
-		return nil, nil, false
+		return nil, false
 	}
 	if tx.Kind != sap.KindWithdrawal {
 		h.result(w, http.StatusBadRequest, resultData{Title: "Not supported", Message: "Only withdrawals are supported."})
-		return nil, nil, false
+		return nil, false
 	}
 	if tx.Status != sap.StatusIncomplete {
 		h.result(w, http.StatusOK, resultData{Title: "Withdrawal started", Message: "This withdrawal is already in progress. Return to your wallet to follow it."})
-		return nil, nil, false
+		return nil, false
 	}
-	return claims, tx, true
+	account, memo := claims.Account()
+	return &session{claims: claims, tx: tx, token: token, account: account, memo: memo}, true
+}
+
+// amount is what the wallet asked for, used to pre-fill the withdrawal form.
+func (s *session) amount() string {
+	if s.tx.AmountExpected != nil && s.tx.AmountExpected.Amount != "" {
+		return s.tx.AmountExpected.Amount
+	}
+	v, _ := s.claims.Data["amount"].(string)
+	return v
+}
+
+func (h *Handler) lookup(r *http.Request, s *session) *customer.Customer {
+	c, err := h.customers.Lookup(r.Context(), s.account, s.memo)
+	if err != nil {
+		if !errors.Is(err, customer.ErrNotFound) {
+			log.Error().Err(err).Msg("interactive: failed to load customer")
+		}
+		return nil
+	}
+	return c
 }
 
 func (h *Handler) show(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	claims, tx, ok := h.session(w, r, q.Get("transaction_id"), q.Get("token"))
+	s, ok := h.session(w, r, q.Get("transaction_id"), q.Get("token"))
 	if !ok {
 		return
 	}
-
-	values := map[string]string{}
-	account, memo := claims.Account()
-	if c, err := h.customers.Lookup(r.Context(), account, memo); err == nil {
-		for _, f := range formFields {
-			if f != "id_number" {
-				values[f] = c.Fields[f]
-			}
-		}
-	} else if !errors.Is(err, customer.ErrNotFound) {
-		log.Error().Err(err).Msg("interactive: failed to load customer")
+	c := h.lookup(r, s)
+	if !c.IdentityVerified() {
+		h.identity(w, s, c, saved(c, identityForm), "")
+		return
 	}
-
-	amount := ""
-	if tx.AmountExpected != nil {
-		amount = tx.AmountExpected.Amount
-	}
-	if v, ok := claims.Data["amount"].(string); ok && amount == "" {
-		amount = v
-	}
-	h.form(w, r, tx, claims, q.Get("token"), amount, values, "")
+	h.withdraw(w, r, s, c, s.amount(), saved(c, bankForm), "")
 }
 
 func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
@@ -146,53 +168,77 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	token := r.PostForm.Get("token")
-	claims, tx, ok := h.session(w, r, r.PostForm.Get("transaction_id"), token)
+	s, ok := h.session(w, r, r.PostForm.Get("transaction_id"), r.PostForm.Get("token"))
 	if !ok {
 		return
 	}
-	account, memo := claims.Account()
-
-	values := map[string]string{}
-	for _, f := range formFields {
-		values[f] = strings.TrimSpace(r.PostForm.Get(f))
+	if r.PostForm.Get("step") == stepIdentity {
+		h.submitIdentity(w, r, s)
+		return
 	}
-	amount := strings.TrimSpace(r.PostForm.Get("amount"))
+	h.submitWithdraw(w, r, s)
+}
 
-	resp, err := h.customers.Put(r.Context(), customer.PutRequest{Account: account, Memo: memo, Fields: values})
+func (h *Handler) submitIdentity(w http.ResponseWriter, r *http.Request, s *session) {
+	values := posted(r, identityForm)
+	resp, err := h.customers.Put(r.Context(), customer.PutRequest{Account: s.account, Memo: s.memo, Fields: values})
 	var verr *customer.ValidationError
 	switch {
 	case errors.As(err, &verr):
-		h.form(w, r, tx, claims, token, amount, values, verr.Error())
+		h.identity(w, s, h.lookup(r, s), values, verr.Error())
 		return
 	case err != nil:
 		log.Error().Err(err).Msg("interactive: failed to save customer")
-		h.form(w, r, tx, claims, token, amount, values, "We could not save your details. Please try again.")
+		h.identity(w, s, h.lookup(r, s), values, "We could not save your details. Please try again.")
 		return
 	}
 
-	switch resp.Status {
-	case customer.StatusAccepted:
-	case customer.StatusRejected:
-		h.form(w, r, tx, claims, token, amount, values, "We could not verify your identity. Check that your name and date of birth match your BVN or NIN record.")
-		return
-	case customer.StatusNeedsInfo:
-		h.form(w, r, tx, claims, token, amount, values, "Fill in all the required fields.")
-		return
-	default:
+	c := h.lookup(r, s)
+	switch {
+	case resp.Status == customer.StatusRejected:
+		h.identity(w, s, c, values, "We could not verify your identity. Check that your name and date of birth match your BVN or NIN record.")
+	case resp.Status == customer.StatusProcessing:
 		h.result(w, http.StatusOK, resultData{Title: "Verification in progress", Message: "We are still verifying your identity. Start the withdrawal again from your wallet once it is complete."})
+	case !c.IdentityVerified():
+		h.identity(w, s, c, values, "Fill in all the required fields.")
+	default:
+		h.withdraw(w, r, s, c, s.amount(), saved(c, bankForm), "")
+	}
+}
+
+func (h *Handler) submitWithdraw(w http.ResponseWriter, r *http.Request, s *session) {
+	c := h.lookup(r, s)
+	if !c.IdentityVerified() {
+		h.identity(w, s, c, saved(c, identityForm), "Verify your identity before you withdraw.")
+		return
+	}
+	values := posted(r, bankForm)
+	amount := strings.TrimSpace(r.PostForm.Get("amount"))
+
+	resp, err := h.customers.Put(r.Context(), customer.PutRequest{Account: s.account, Memo: s.memo, Fields: values})
+	var verr *customer.ValidationError
+	switch {
+	case errors.As(err, &verr):
+		h.withdraw(w, r, s, c, amount, values, verr.Error())
+		return
+	case err != nil:
+		log.Error().Err(err).Msg("interactive: failed to save customer")
+		h.withdraw(w, r, s, c, amount, values, "We could not save your details. Please try again.")
+		return
+	case resp.Status != customer.StatusAccepted:
+		h.withdraw(w, r, s, c, amount, values, "Choose your bank and enter your account number.")
 		return
 	}
 
-	wd, err := h.withdrawals.Start(r.Context(), tx, account, memo, amount)
+	wd, err := h.withdrawals.Start(r.Context(), s.tx, s.account, s.memo, amount)
 	var uerr *withdrawal.UserError
 	switch {
 	case errors.As(err, &uerr):
-		h.form(w, r, tx, claims, token, amount, values, uerr.Msg)
+		h.withdraw(w, r, s, c, amount, values, uerr.Msg)
 		return
 	case err != nil:
-		log.Error().Err(err).Str("tx", tx.ID).Msg("interactive: failed to start withdrawal")
-		h.form(w, r, tx, claims, token, amount, values, "We could not start the withdrawal. Please try again.")
+		log.Error().Err(err).Str("tx", s.tx.ID).Msg("interactive: failed to start withdrawal")
+		h.withdraw(w, r, s, c, amount, values, "We could not start the withdrawal. Please try again.")
 		return
 	}
 
@@ -204,34 +250,43 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) form(w http.ResponseWriter, r *http.Request, tx *sap.Transaction, claims *auth.InteractiveClaims, token, amount string, values map[string]string, msg string) {
+func (h *Handler) identity(w http.ResponseWriter, s *session, c *customer.Customer, values map[string]string, msg string) {
+	h.render(w, "identity.html", msg, pageData{
+		TransactionID: s.tx.ID,
+		Token:         s.token,
+		AssetCode:     assetCode(withdrawal.TransactionAsset(s.tx)),
+		Values:        values,
+		HasIDNumber:   c != nil && c.Fields["id_number"] != "",
+		Error:         msg,
+	})
+}
+
+func (h *Handler) withdraw(w http.ResponseWriter, r *http.Request, s *session, c *customer.Customer, amount string, values map[string]string, msg string) {
 	banks, err := h.banks.Banks(r.Context())
 	if err != nil {
 		log.Error().Err(err).Msg("interactive: failed to load banks")
 	}
-	hasID := false
-	account, memo := claims.Account()
-	if c, err := h.customers.Lookup(r.Context(), account, memo); err == nil {
-		hasID = c.Fields["id_number"] != ""
-	}
-	asset := withdrawal.TransactionAsset(tx)
-	data := formData{
-		TransactionID: tx.ID,
-		Token:         token,
+	asset := withdrawal.TransactionAsset(s.tx)
+	h.render(w, "form.html", msg, pageData{
+		TransactionID: s.tx.ID,
+		Token:         s.token,
 		AssetCode:     assetCode(asset),
 		Rate:          h.withdrawals.Rate(asset),
 		Amount:        amount,
 		Banks:         banks,
 		Values:        values,
-		HasIDNumber:   hasID,
+		Name:          strings.TrimSpace(c.Fields["first_name"] + " " + c.Fields["last_name"]),
 		Error:         msg,
-	}
+	})
+}
+
+func (h *Handler) render(w http.ResponseWriter, page, msg string, data pageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if msg != "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 	}
-	if err := pages.ExecuteTemplate(w, "form.html", data); err != nil {
-		log.Error().Err(err).Msg("interactive: render form")
+	if err := pages.ExecuteTemplate(w, page, data); err != nil {
+		log.Error().Err(err).Str("page", page).Msg("interactive: render")
 	}
 }
 
@@ -241,6 +296,29 @@ func (h *Handler) result(w http.ResponseWriter, status int, data resultData) {
 	if err := pages.ExecuteTemplate(w, "result.html", data); err != nil {
 		log.Error().Err(err).Msg("interactive: render result")
 	}
+}
+
+// saved pre-fills a form from the stored customer. The ID number is never
+// sent back to the browser.
+func saved(c *customer.Customer, names []string) map[string]string {
+	values := map[string]string{}
+	if c == nil {
+		return values
+	}
+	for _, f := range names {
+		if f != "id_number" {
+			values[f] = c.Fields[f]
+		}
+	}
+	return values
+}
+
+func posted(r *http.Request, names []string) map[string]string {
+	values := map[string]string{}
+	for _, f := range names {
+		values[f] = strings.TrimSpace(r.PostForm.Get(f))
+	}
+	return values
 }
 
 func assetCode(asset string) string {
