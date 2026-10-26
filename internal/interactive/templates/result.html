@@ -9,29 +9,19 @@
   {{template "brand"}}
 
   <section class="done">
-    <div class="badge">
-      {{if .W}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-      {{else}}<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>{{end}}
-    </div>
+    {{if .W}}<div class="badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/></svg></div>
+    {{else}}<div class="badge red"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></div>{{end}}
     <h1>{{.Title}}</h1>
-    <p>{{.Message}}</p>
-  </section>
+    <p class="msg">{{.Message}}</p>
 
-  {{with .W}}
-  <div class="card">
-    <dl>
-      <div><dt>You send</dt><dd>{{.AmountIn}} {{$.Asset}}</dd></div>
-      <div><dt>You receive</dt><dd>NGN {{.AmountOut}}</dd></div>
-      <div><dt>Account</dt><dd>{{.AccountName}}</dd></div>
+    {{with .W}}
+    <dl class="summary">
+      <div><dt>Amount to Send</dt><dd>{{.AmountIn}} {{$.Asset}}</dd></div>
+      <div><dt>Amount to Receive</dt><dd>NGN {{.AmountOut}}</dd></div>
+      <div><dt>Recipient</dt><dd>{{.AccountName}}</dd></div>
     </dl>
-  </div>
-
-  <div class="timeline">
-    <div class="now"><span>1</span><p><b>Confirm in your wallet</b><small>Your wallet already has the destination and memo.</small></p></div>
-    <div><span>2</span><p><b>We confirm it on Stellar</b><small>Usually a few seconds after you send.</small></p></div>
-    <div><span>3</span><p><b>Naira to your bank</b><small>Your wallet shows the withdrawal as completed.</small></p></div>
-  </div>
-  {{end}}
+    {{end}}
+  </section>
 </main>
 </body>
 </html>

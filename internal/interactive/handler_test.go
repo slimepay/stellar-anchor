@@ -141,9 +141,9 @@ func token(t *testing.T, sub, jti string, exp time.Time) string {
 	return s
 }
 
-func (f *fixture) get(tok string) *httptest.ResponseRecorder {
+func (f *fixture) get(tok string, extra ...string) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
-	f.h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/sep24/interactive?transaction_id=tx-1&token="+url.QueryEscape(tok), nil))
+	f.h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/sep24/interactive?transaction_id=tx-1&token="+url.QueryEscape(tok)+strings.Join(extra, ""), nil))
 	return w
 }
 
@@ -175,11 +175,18 @@ func TestNewCustomerSeesIdentityFirst(t *testing.T) {
 	w := f.get(f.tok)
 	require.Equal(t, http.StatusOK, w.Code)
 	body := w.Body.String()
-	assert.Contains(t, body, "Verify your identity")
-	assert.Contains(t, body, `name="step" value="identity"`)
+	assert.Contains(t, body, "Verify Your Identity")
+	assert.Contains(t, body, "What you'll need")
+	assert.Contains(t, body, `name="step" value="details"`)
 	assert.NotContains(t, body, "bank_account_number", "bank details are not part of the identity step")
 	assert.NotContains(t, body, `name="amount"`)
 	assert.Contains(t, w.Header().Get("Content-Security-Policy"), "default-src 'none'")
+	assert.Contains(t, w.Header().Get("Content-Security-Policy"), "script-src 'sha256-")
+
+	details := f.get(f.tok, "&step=details").Body.String()
+	assert.Contains(t, details, `name="step" value="identity"`)
+	assert.Contains(t, details, `name="id_number"`)
+	assert.NotContains(t, details, "bank_account_number")
 	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 }
 
@@ -188,7 +195,9 @@ func TestVerifiedCustomerSeesWithdrawForm(t *testing.T) {
 	f.verified()
 	body := f.get(f.tok).Body.String()
 	assert.Contains(t, body, "Withdraw USDC to naira")
-	assert.Contains(t, body, "1 USDC = NGN 1500.00")
+	assert.Contains(t, body, "₦1,500.00", "current rate")
+	assert.Contains(t, body, "Withdraw USD Coin")
+	assert.Contains(t, body, "₦37,500.00", "you will receive")
 	assert.Contains(t, body, `value="25"`, "amount from the token")
 	assert.Contains(t, body, "GTBank")
 	assert.Contains(t, body, "Verified as Ada Obi")
@@ -199,7 +208,7 @@ func TestVerifiedCustomerSeesWithdrawForm(t *testing.T) {
 func TestIdentityPrefillsWithoutIDNumber(t *testing.T) {
 	f := setup(t)
 	f.c.saved["GUSER:"] = &customer.Customer{Status: customer.StatusRejected, Fields: map[string]string{"first_name": "Ada", "id_number": "22222222222"}}
-	body := f.get(f.tok).Body.String()
+	body := f.get(f.tok, "&step=details").Body.String()
 	assert.Contains(t, body, `value="Ada"`)
 	assert.NotContains(t, body, "22222222222")
 	assert.Contains(t, body, "Leave the ID number blank")
@@ -307,4 +316,10 @@ func TestOutputIsEscaped(t *testing.T) {
 	f.c.status = customer.StatusRejected
 	body := f.post(form).Body.String()
 	assert.NotContains(t, body, "<script>alert(1)</script>")
+}
+
+func TestNaira(t *testing.T) {
+	for in, want := range map[string]string{"1500": "₦1,500.00", "1500.5": "₦1,500.50", "37500": "₦37,500.00", "1234567.891": "₦1,234,567.89", "12": "₦12.00", "0": "₦0.00"} {
+		assert.Equal(t, want, naira(in), in)
+	}
 }

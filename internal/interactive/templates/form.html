@@ -8,50 +8,74 @@
 <main>
   {{template "brand"}}
 
-  <div class="head">
-    <h1>Withdraw {{.AssetCode}} to naira</h1>
-    {{if .Name}}<span class="verified"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>Verified as {{.Name}}</span>{{end}}
-  </div>
-
-  {{if .Error}}<div class="error" role="alert"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg><span>{{.Error}}</span></div>{{end}}
-
   <form method="post" action="">
     <input type="hidden" name="transaction_id" value="{{.TransactionID}}">
     <input type="hidden" name="token" value="{{.Token}}">
 
-    <div class="card">
-      <div class="field amount">
-        <label for="amount">Amount</label>
-        <input id="amount" name="amount" inputmode="decimal" value="{{.Amount}}" placeholder="0.00" required>
-        <span class="unit">{{if eq .AssetCode "USDC"}}<span class="coin usdc">$</span>{{else}}<span class="coin xlm">X</span>{{end}}{{.AssetCode}}</span>
+    <div class="deposit">
+      <div class="coin-head">
+        <div class="who">
+          <div class="coin-img">
+            {{if eq .AssetCode "USDC"}}<svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" fill="#2775ca"/><circle cx="24" cy="24" r="15" fill="none" stroke="#fff" stroke-width="2.2"/><path fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" d="M28.4 19.6c-.6-1.6-2.2-2.5-4.4-2.5-2.6 0-4.3 1.3-4.3 3.2 0 4.4 9 2.4 9 7 0 2-1.9 3.4-4.7 3.4-2.4 0-4.1-1-4.7-2.7M24 14.6v2.5M24 30.7v2.6"/></svg>
+            {{else}}<svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" fill="#0f172a"/><path fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" d="m15 33 18-18M15 15l18 18"/></svg>{{end}}
+            <span class="ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </div>
+          <div>
+            <h2>Withdraw {{.AssetName}}</h2>
+            <p class="sub">Send only <b>{{.AssetCode}}</b> from your Stellar wallet</p>
+            {{if .Name}}<span class="verified"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>Verified as {{.Name}}</span>{{end}}
+          </div>
+        </div>
+        {{if .Rate}}<div class="rate"><p class="k">Current Rate</p><p class="v">{{naira .Rate}}</p></div>{{end}}
       </div>
-      {{if .Rate}}<div class="quote"><span>Rate</span><b>1 {{.AssetCode}} = NGN {{.Rate}}</b></div>{{end}}
-    </div>
 
-    <h2>Pay to</h2>
-    <div class="card">
-      <div class="field">
-        <label for="bank_number">Bank</label>
-        <select id="bank_number" name="bank_number" required>
-          <option value="">Choose your bank</option>
-          {{$selected := index .Values "bank_number"}}
-          {{range .Banks}}<option value="{{.Code}}" {{if eq .Code $selected}}selected{{end}}>{{.Name}}</option>{{end}}
-        </select>
-      </div>
-      <div class="field">
-        <label for="bank_account_number">Account number</label>
-        <input id="bank_account_number" name="bank_account_number" inputmode="numeric" maxlength="10" placeholder="10 digits" value="{{index .Values "bank_account_number"}}" required>
-      </div>
-    </div>
-    <div class="hint">Naira is paid only after your {{.AssetCode}} is confirmed on Stellar.</div>
+      <div class="content">
+        <div class="warn">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <p>Send only <strong>{{.AssetCode}}</strong> on the <strong>STELLAR</strong> network. Your wallet already has the address and memo, and naira is paid once the payment is confirmed.</p>
+        </div>
 
-    <div class="cta">
-      <div class="cta-inner">
-        <button type="submit">Withdraw</button>
-        <div class="fine">Stellar testnet. Identity checks and payouts are simulated.</div>
+        {{template "alert" .Error}}
+
+        <div>
+          <label class="fl" for="amount">Amount to Withdraw</label>
+          <div class="fx">
+            <input id="amount" name="amount" type="number" step="any" min="0" inputmode="decimal" placeholder="0.00" value="{{.Amount}}" required>
+            <span class="unit">{{.AssetCode}}</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="fl" for="receive">You Will Receive</label>
+          <div class="fx">
+            <input id="receive" type="text" value="{{.Receive}}" data-rate="{{.Rate}}" readonly tabindex="-1">
+            <span class="unit">NGN</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="fl" for="bank_number">Recipient account</label>
+          <div class="split">
+            <div class="fx">
+              <select id="bank_number" name="bank_number" required>
+                <option value="">Select bank</option>
+                {{$selected := index .Values "bank_number"}}
+                {{range .Banks}}<option value="{{.Code}}" {{if eq .Code $selected}}selected{{end}}>{{.Name}}</option>{{end}}
+              </select>
+              <svg class="i caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+            </div>
+            <div class="fx">
+              <input id="bank_account_number" name="bank_account_number" inputmode="numeric" maxlength="10" placeholder="Account number" value="{{index .Values "bank_account_number"}}" required>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn" type="submit">Withdraw</button>
       </div>
     </div>
+    <p class="fine">Stellar testnet. Identity checks and payouts are simulated.</p>
   </form>
 </main>
+<script>{{.Script}}</script>
 </body>
 </html>

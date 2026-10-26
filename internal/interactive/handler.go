@@ -11,6 +11,9 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"crypto/sha256"
+	"encoding/base64"
+	"strconv"
 	"strings"
 
 	"aidmedium/stellar-anchor/internal/auth"
@@ -25,7 +28,16 @@ import (
 //go:embed templates/*.html
 var templateFS embed.FS
 
-var pages = template.Must(template.ParseFS(templateFS, "templates/*.html"))
+var pages = template.Must(template.New("").Funcs(template.FuncMap{"naira": naira}).ParseFS(templateFS, "templates/*.html"))
+
+// receiveScript keeps "You Will Receive" in step with the amount. The CSP allows
+// only this script, by hash.
+const receiveScript = `(function(){var a=document.getElementById("amount"),o=document.getElementById("receive");if(!a||!o)return;var r=parseFloat(o.dataset.rate)||0;function u(){var v=parseFloat(a.value);o.value="₦"+(v>0?v*r:0).toLocaleString("en-NG",{minimumFractionDigits:2,maximumFractionDigits:2})}a.addEventListener("input",u);u()})();`
+
+var csp = func() string {
+	sum := sha256.Sum256([]byte(receiveScript))
+	return "default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'; form-action 'self'; base-uri 'none'"
+}()
 
 type Platform interface {
 	GetTransaction(ctx context.Context, id string) (*sap.Transaction, error)
@@ -70,6 +82,10 @@ type pageData struct {
 	HasIDNumber   bool
 	Name          string
 	Error         string
+	Details       bool
+	AssetName     string
+	Receive       string
+	Script        template.JS
 }
 
 type resultData struct {
@@ -156,7 +172,7 @@ func (h *Handler) show(w http.ResponseWriter, r *http.Request) {
 	}
 	c := h.lookup(r, s)
 	if !c.IdentityVerified() {
-		h.identity(w, s, c, saved(c, identityForm), "")
+		h.identity(w, s, c, saved(c, identityForm), "", q.Get("step") == "details")
 		return
 	}
 	h.withdraw(w, r, s, c, s.amount(), saved(c, bankForm), "")
@@ -185,22 +201,22 @@ func (h *Handler) submitIdentity(w http.ResponseWriter, r *http.Request, s *sess
 	var verr *customer.ValidationError
 	switch {
 	case errors.As(err, &verr):
-		h.identity(w, s, h.lookup(r, s), values, verr.Error())
+		h.identity(w, s, h.lookup(r, s), values, verr.Error(), true)
 		return
 	case err != nil:
 		log.Error().Err(err).Msg("interactive: failed to save customer")
-		h.identity(w, s, h.lookup(r, s), values, "We could not save your details. Please try again.")
+		h.identity(w, s, h.lookup(r, s), values, "We could not save your details. Please try again.", true)
 		return
 	}
 
 	c := h.lookup(r, s)
 	switch {
 	case resp.Status == customer.StatusRejected:
-		h.identity(w, s, c, values, "We could not verify your identity. Check that your name and date of birth match your BVN or NIN record.")
+		h.identity(w, s, c, values, "We could not verify your identity. Check that your name and date of birth match your BVN or NIN record.", false)
 	case resp.Status == customer.StatusProcessing:
 		h.result(w, http.StatusOK, resultData{Title: "Verification in progress", Message: "We are still verifying your identity. Start the withdrawal again from your wallet once it is complete."})
 	case !c.IdentityVerified():
-		h.identity(w, s, c, values, "Fill in all the required fields.")
+		h.identity(w, s, c, values, "Fill in all the required fields.", true)
 	default:
 		h.withdraw(w, r, s, c, s.amount(), saved(c, bankForm), "")
 	}
@@ -209,7 +225,7 @@ func (h *Handler) submitIdentity(w http.ResponseWriter, r *http.Request, s *sess
 func (h *Handler) submitWithdraw(w http.ResponseWriter, r *http.Request, s *session) {
 	c := h.lookup(r, s)
 	if !c.IdentityVerified() {
-		h.identity(w, s, c, saved(c, identityForm), "Verify your identity before you withdraw.")
+		h.identity(w, s, c, saved(c, identityForm), "Verify your identity before you withdraw.", true)
 		return
 	}
 	values := posted(r, bankForm)
@@ -250,7 +266,7 @@ func (h *Handler) submitWithdraw(w http.ResponseWriter, r *http.Request, s *sess
 	})
 }
 
-func (h *Handler) identity(w http.ResponseWriter, s *session, c *customer.Customer, values map[string]string, msg string) {
+func (h *Handler) identity(w http.ResponseWriter, s *session, c *customer.Customer, values map[string]string, msg string, details bool) {
 	h.render(w, "identity.html", msg, pageData{
 		TransactionID: s.tx.ID,
 		Token:         s.token,
@@ -258,6 +274,7 @@ func (h *Handler) identity(w http.ResponseWriter, s *session, c *customer.Custom
 		Values:        values,
 		HasIDNumber:   c != nil && c.Fields["id_number"] != "",
 		Error:         msg,
+		Details:       details,
 	})
 }
 
@@ -271,8 +288,11 @@ func (h *Handler) withdraw(w http.ResponseWriter, r *http.Request, s *session, c
 		TransactionID: s.tx.ID,
 		Token:         s.token,
 		AssetCode:     assetCode(asset),
+		AssetName:     assetName(asset),
 		Rate:          h.withdrawals.Rate(asset),
 		Amount:        amount,
+		Receive:       naira(receive(amount, h.withdrawals.Rate(asset))),
+		Script:        template.JS(receiveScript),
 		Banks:         banks,
 		Values:        values,
 		Name:          strings.TrimSpace(c.Fields["first_name"] + " " + c.Fields["last_name"]),
@@ -333,8 +353,46 @@ func assetCode(asset string) string {
 }
 
 func setSecurityHeaders(w http.ResponseWriter) {
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'")
+	w.Header().Set("Content-Security-Policy", csp)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cache-Control", "no-store")
+}
+
+func assetName(asset string) string {
+	switch assetCode(asset) {
+	case "USDC":
+		return "USD Coin"
+	case "XLM":
+		return "Stellar Lumens"
+	}
+	return assetCode(asset)
+}
+
+// receive is the naira the amount buys at rate, for the first render of the form.
+func receive(amount, rate string) string {
+	a, err1 := strconv.ParseFloat(amount, 64)
+	r, err2 := strconv.ParseFloat(rate, 64)
+	if err1 != nil || err2 != nil || a <= 0 {
+		return "0"
+	}
+	return strconv.FormatFloat(a*r, 'f', 2, 64)
+}
+
+// naira formats a decimal string as ₦1,234.50.
+func naira(v string) string {
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return "₦" + v
+	}
+	s := strconv.FormatFloat(f, 'f', 2, 64)
+	whole, frac := s[:len(s)-3], s[len(s)-3:]
+	var b strings.Builder
+	for i, ch := range whole {
+		if i > 0 && (len(whole)-i)%3 == 0 {
+			b.WriteByte(',')
+		}
+		b.WriteRune(ch)
+	}
+	return "₦" + b.String() + frac
 }
