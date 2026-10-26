@@ -11,12 +11,13 @@ Highlights of the SCF #45 Tranche 1 work. The design is in the [ARCHITECTURE doc
 ## KYC
 
 - SAP's customer callback is backed by Dojah: BVN or NIN checked against name and date of birth, then sanctions and PEP screening. On mainnet this is Slimepay's production Dojah integration. On testnet the Dojah verification is simulated, so testers never submit real identity data.
+- Identity is verified as soon as the identity fields are complete, without waiting for bank details. The customer is accepted for payouts once the bank account is added too.
 - A possible screening match goes to manual review. A confirmed match is rejected.
 - Customer data is encrypted at rest (AES-256-GCM). The audit log records decisions without personal data.
 
 ## Withdrawals
 
-- SEP-24 withdrawal page: identity, bank account, amount and naira quote, then `request_onchain_funds`.
+- SEP-24 withdrawal page in two steps. Identity is verified first, on its own screen, and only once. The withdrawal form then takes the amount and bank account, shows the naira rate and calls `request_onchain_funds`.
 - SEP-6 withdrawals start automatically once the customer has passed KYC.
 - The processor checks each payment on Horizon before paying out, then reports `notify_offchain_funds_pending` and `notify_offchain_funds_sent`. Failures go through `notify_transaction_error`.
 

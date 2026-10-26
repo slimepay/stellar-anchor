@@ -49,7 +49,7 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 
 1. The wallet authenticates with SEP-10 against SAP.
 2. The wallet starts `POST /sep24/transactions/withdraw/interactive`. SAP creates the transaction and returns the interactive URL.
-3. The user completes the Slimepay interactive page: identity (checked by the Business Server), bank account and amount, with a naira quote from the configured rate. Tranche 2 replaces the rate with SEP-38 firm quotes.
+3. The user completes the Slimepay interactive page in two steps. Identity comes first and on its own: the Business Server verifies it as soon as the identity fields are saved, and a verified user skips this step on later withdrawals. Then a short withdrawal form takes the amount and bank account, with a naira quote from the configured rate. Tranche 2 replaces the rate with SEP-38 firm quotes.
 4. The Business Server calls the Platform API (`request_onchain_funds`) with the amounts. SAP assigns the memo and moves the transaction to `pending_user_transfer_start`.
 5. The wallet sends USDC or XLM to the distribution account with that memo.
 6. The SAP payment observer sees the payment, matches it by memo and moves the transaction to `pending_anchor`.

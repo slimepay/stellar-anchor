@@ -5,7 +5,7 @@ Slimepay's Stellar anchor. Users send USDC or XLM on Stellar and receive naira i
 The anchor runs on the [Stellar Anchor Platform](https://github.com/stellar/anchor-platform) (SAP). SAP serves every SEP endpoint wallets talk to (SEP-1, 10, 12, 6 and 24), keeps the transaction records and watches the ledger for incoming payments. This repository is the **Business Server** behind it: the part that is specific to Slimepay.
 
 - **KYC.** SAP's customer callback (`/customer`). On mainnet it uses Slimepay's production Dojah integration: BVN or NIN check plus sanctions and PEP screening. On testnet the Dojah verification is simulated.
-- **SEP-24 withdrawal page.** The interactive page SAP sends wallets to. The user confirms identity and bank account, picks an amount and gets a naira quote.
+- **SEP-24 withdrawal page.** The interactive page SAP sends wallets to. A new user verifies their identity first, on its own step. A verified user goes straight to a short withdrawal form: amount, naira rate and bank account.
 - **Payouts.** Polls SAP for funded withdrawals, checks the payment against the ledger, asks Slimepay core to pay the naira out (through SafeHaven on mainnet, simulated on testnet), then reports back to SAP.
 - **Reconciliation.** Compares SAP, the ledger and core for every finished withdrawal, and flags payments nobody can explain.
 
@@ -18,8 +18,8 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design, [TRANCHE1_UPDATES.md
 ## How a withdrawal works
 
 1. The wallet authenticates with SAP (SEP-10) and starts a SEP-24 withdrawal. SAP creates the transaction and sends the user to `/sep24/interactive` on this service.
-2. The page checks SAP's token, collects identity and bank details and saves them through the customer service. Dojah verifies the BVN or NIN and screens the name.
-3. Once KYC passes, the bank account is resolved through core, the naira amount is quoted, and the Business Server calls `request_onchain_funds`. SAP assigns the memo.
+2. The page checks SAP's token. If the user is not verified yet, it shows the identity step: name, email, date of birth and BVN or NIN. Dojah verifies the BVN or NIN and screens the name as soon as those are saved, before any bank details are asked for.
+3. Once identity is verified, the user enters the amount and bank account. The bank account is resolved through core, the naira amount is quoted, and the Business Server calls `request_onchain_funds`. SAP assigns the memo.
 4. The wallet pays the distribution account. SAP's observer matches the payment and moves the transaction to `pending_anchor`.
 5. The processor checks the payment on Horizon (amount, asset, destination, memo), asks core to pay out, and calls `notify_offchain_funds_pending` then `notify_offchain_funds_sent`. SAP marks the withdrawal completed.
 
