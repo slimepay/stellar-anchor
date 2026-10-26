@@ -6,14 +6,31 @@
 </head>
 <body>
 <main>
-  <h1>{{.Title}}</h1>
-  <p>{{.Message}}</p>
+  {{template "brand"}}
+
+  <section class="done">
+    <div class="badge">
+      {{if .W}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>
+      {{else}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg>{{end}}
+    </div>
+    <h1>{{.Title}}</h1>
+    <p>{{.Message}}</p>
+  </section>
+
   {{with .W}}
-  <dl>
-    <dt>You send</dt><dd>{{.AmountIn}} {{$.Asset}}</dd>
-    <dt>You receive</dt><dd>NGN {{.AmountOut}}</dd>
-    <dt>Account</dt><dd>{{.AccountName}}</dd>
-  </dl>
+  <div class="card">
+    <dl>
+      <div><dt>You send</dt><dd>{{.AmountIn}} {{$.Asset}}</dd></div>
+      <div><dt>You receive</dt><dd>NGN {{.AmountOut}}</dd></div>
+      <div><dt>Account</dt><dd>{{.AccountName}}</dd></div>
+    </dl>
+  </div>
+
+  <div class="timeline">
+    <div class="now"><span>1</span><p><b>Confirm in your wallet</b><small>Your wallet already has the destination and memo.</small></p></div>
+    <div><span>2</span><p><b>We confirm it on Stellar</b><small>Usually a few seconds after you send.</small></p></div>
+    <div><span>3</span><p><b>Naira to your bank</b><small>Your wallet shows the withdrawal as completed.</small></p></div>
+  </div>
   {{end}}
 </main>
 </body>
