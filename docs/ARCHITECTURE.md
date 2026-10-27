@@ -17,7 +17,7 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 | Transaction records and status machine | SAP platform server (Postgres) |
 | Customers (encrypted), withdrawal ledger, reconciliation results, audit log | Business Server (MongoDB) |
 | Watching the distribution account for incoming payments | SAP payment observer |
-| Memo assignment for incoming payments | SAP (`deposit_info_generator_type: self`, random 64 bit memo IDs) |
+| Memo assignment for incoming payments | SAP (random 64 bit ID memos, one per transaction) |
 | KYC data and checks | Business Server (this repo). Mainnet: Slimepay's production Dojah integration. Testnet: the Dojah verification is simulated |
 | Quotes and fees | Business Server. Tranche 1 uses a configured naira rate with no fee; SEP-38 firm quotes come in Tranche 2 |
 | Interactive withdrawal UI | Business Server page at `/sep24/interactive` (Tranche 1); the full UI with quote acceptance is Tranche 2 |
@@ -27,14 +27,15 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 ### Components
 
 ```
- Wallet (Freighter, Lobstr, ...)
+ Stellar wallet
    |
-   |  SEP-10 / 12 / 24 / 6 / 31 / 38
+   |  SEP-10 / 12 / 24 / 6  (SEP-31 and SEP-38 in Tranche 2)
    v
  SAP SEP server ----- SAP platform server ---- Postgres
    |                     ^      |
    | callbacks           |      | Platform API (JSON-RPC)
-   | (/customer, /rate)  |      |
+   | (/customer;         |      |
+   |  /rate in Tranche 2)|      |
    v                     |      v
  Business Server (this repo, Go) ---- MongoDB
    |            |
@@ -108,16 +109,20 @@ This repository is the Business Server. The hand written SEP handlers from the p
 Built in Tranche 1:
 
 - Customer callback (`GET/PUT/DELETE /customer`) with Dojah BVN or NIN verification and sanctions and PEP screening. Customer data is encrypted at rest.
-- SEP-24 withdrawal page that verifies SAP's interactive token and calls `request_onchain_funds`.
+- SEP-24 withdrawal page that verifies SAP's interactive token, verifies the user's identity once, then takes the amount and bank account and calls `request_onchain_funds`. Tested on testnet with the SDF demo wallet.
 - SEP-6 withdrawals started by the processor once KYC has passed.
 - Payout processor using the Platform API (`request_onchain_funds`, `notify_offchain_funds_pending`, `notify_offchain_funds_sent`, `notify_transaction_error`, `notify_transaction_on_hold`) and Slimepay core's anchor payout API.
 - Reconciliation v1 and alerts, audit log.
 - Testnet deployment on Railway (see the [testnet runbook](TESTNET_RUNBOOK.md)), and `stellar.toml` served on the home domain by the Slimepay web app, which proxies SAP.
 
-Tranche 2: SEP-38 quotes through the rate callback, the full interactive UI, SEP-31 and partner webhooks.
+## Later tranches
+
+- **Tranche 2.** Merchant checkout with Stellar Wallets Kit (Freighter and Lobstr), the B2B settlement API on SEP-31 with partner webhooks, SEP-38 quotes through the rate callback, and the full interactive UI.
+- **Tranche 3.** The Stellar Disbursement Platform on testnet, end to end validation across all flows, and the open-source NGN anchor deployment guide with a public testnet metrics report.
+
+The Stellar Disbursement Platform is scheduled for Tranche 3 and is not part of Tranche 1. Its design, including who holds the recipient wallets and how it relates to the bank payout flow, will be added to this document as part of that tranche.
 
 ## Out of scope
 
 - **Mainnet.** Self funded, after the SCF tranches.
-- **Stellar Disbursement Platform.** Dropped, following reviewer feedback. Payouts go to bank accounts through SafeHaven, so there is no recipient wallet and no reason for an extra on-chain hop. The later tranche that referenced SDP will be rescoped with SCF.
 - **Deposits** (naira to Stellar assets).
