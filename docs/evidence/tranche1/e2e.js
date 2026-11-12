@@ -139,7 +139,7 @@ async function wait() {
     }
     if (["completed", "error", "refunded", "expired", "pending_anchor"].includes(t.status) && t.status !== "pending_anchor") {
       log("sep24.final_transaction", { transaction: t });
-      fs.writeFileSync(path.join(DIR, "final-transaction.json"), JSON.stringify(t, null, 2));
+      fs.writeFileSync(path.join(DIR, "final-transaction.json"), JSON.stringify(redact(t), null, 2) + "\n");
       return;
     }
     await new Promise((r) => setTimeout(r, 5000));
