@@ -4,13 +4,14 @@ Highlights of the SCF #45 Tranche 1 work. The design is in the [ARCHITECTURE doc
 
 ## Anchor Platform
 
-- SAP 5.0.0 serves SEP-1, 10, 12, 6 and 24 on testnet. Its payment observer watches the distribution account.
+- SAP 5.0.0 serves SEP-1, 10, 12, 6 and 24 on testnet. Its payment observer watches the distribution account on Stellar RPC, with Horizon as the fallback for the payout check and reconciliation ([Ledger monitoring](ARCHITECTURE.md#ledger-monitoring)).
+- SEP-6 and SEP-24 `more_info_url` open a status page on the Business Server, verified with SAP's more info secrets.
 - The prototype SEP handlers in this repo were removed. The repo is now the Business Server behind SAP.
 - Deployed on Railway: SAP at `anchor.slimepay.com` with Postgres, and the Business Server with MongoDB. `deploy/` has the same stack for a single machine.
 
 ## KYC
 
-- SAP's customer callback is backed by Dojah: BVN or NIN checked against name and date of birth, then sanctions and PEP screening. On mainnet this is Slimepay's production Dojah integration. On testnet the Dojah verification is simulated, so testers never submit real identity data.
+- SAP's customer callback is backed by Dojah: BVN or NIN checked against name and date of birth, then sanctions and PEP screening. On mainnet this is Slimepay's production Dojah integration. On testnet the Dojah verification is simulated, so testers never submit real identity data. Two testnet fixture IDs show the other outcomes: `00000000001` is rejected and `00000000002` goes to manual review.
 - Identity is verified as soon as the identity fields are complete, without waiting for bank details. The customer is accepted for payouts once the bank account is added too.
 - A possible screening match goes to manual review. A confirmed match is rejected.
 - Customer data is encrypted at rest (AES-256-GCM). The audit log records decisions without personal data.
@@ -40,4 +41,4 @@ Highlights of the SCF #45 Tranche 1 work. The design is in the [ARCHITECTURE doc
 
 ## Evidence
 
-Validation Suite report, two completed testnet withdrawals and screenshots: [TRANCHE1_EVIDENCE.md](TRANCHE1_EVIDENCE.md).
+Validation Suite report, the withdrawal-only checks for the tests the suite blocks behind deposits, completed testnet withdrawals, KYC fixture results and screenshots: [TRANCHE1_EVIDENCE.md](TRANCHE1_EVIDENCE.md).

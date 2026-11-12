@@ -1,0 +1,18 @@
+# go test -v ./router/ -run 'TestAnchor|TestTestnetBank|TestCheckAnchorSecret|TestPocketBaseAnchorPayoutStore', slimepay-core @ b400f2d, 2026-11-12T12:47Z
+--- PASS: TestPocketBaseAnchorPayoutStore (0.84s)
+--- PASS: TestAnchorPayoutCompletes (0.00s)
+--- PASS: TestAnchorPayoutIsIdempotent (0.00s)
+--- PASS: TestAnchorPayoutConcurrentCallsTransferOnce (0.00s)
+--- PASS: TestAnchorPayoutRejectsChangedDetails (0.00s)
+--- PASS: TestAnchorPayoutValidation (0.00s)
+--- PASS: TestAnchorPayoutLookupOutageRetries (0.00s)
+--- PASS: TestAnchorPayoutBadAccountFails (0.00s)
+--- PASS: TestAnchorPayoutRefusedTransferFails (0.00s)
+--- PASS: TestAnchorPayoutUnknownOutcomeIsNeverRetried (0.00s)
+--- PASS: TestAnchorPayoutPublicStatus (0.00s)
+--- PASS: TestAnchorBanksMapping (0.00s)
+--- PASS: TestAnchorPayoutRefusesOtherNetwork (0.00s)
+--- PASS: TestAnchorNetworkSelectsBank (0.00s)
+--- PASS: TestTestnetBank (0.00s)
+--- PASS: TestCheckAnchorSecret (0.00s)
+ok  	aidmedium/slimepay/router	1.583s

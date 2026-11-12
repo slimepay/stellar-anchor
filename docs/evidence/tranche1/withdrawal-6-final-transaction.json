@@ -1,0 +1,25 @@
+{
+  "withdraw_anchor_account": "GBHZJYFAUF3QK47NQQAGWAOUOXFMY6DQ2UUX6IJUDPCKDKKMU4FKTWGE",
+  "withdraw_memo": "8566453322519518321",
+  "withdraw_memo_type": "id",
+  "id": "1019f2dd-9083-450c-810a-c2df6f5f2cf4",
+  "kind": "withdrawal",
+  "status": "completed",
+  "more_info_url": "https://stellar-anchor-production.up.railway.app/more-info?transaction_id=1019f2dd-9083-450c-810a-c2df6f5f2cf4&token=<redacted>",
+  "amount_in": "5.0000000",
+  "amount_in_asset": "stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "amount_out": "7500.00",
+  "amount_out_asset": "iso4217:NGN",
+  "fee_details": {
+    "total": "0",
+    "asset": "stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+  },
+  "started_at": "2026-11-12T12:40:00.271659Z",
+  "completed_at": "2026-11-12T12:40:36.986283Z",
+  "stellar_transaction_id": "a41aea9f7eeab25adc280789b2d50b593a8cec7d219101179510e4bf3432de3a",
+  "external_transaction_id": "anchor-1019f2dd-9083-450c-810a-c2df6f5f2cf4",
+  "message": "naira sent to your bank account",
+  "refunded": false,
+  "from": "GD4HDTRVIBHXGINPVFYWW5L577IXTHJQ6P5CCSTEFNINBJEWVDTO7YDB",
+  "to": "GBHZJYFAUF3QK47NQQAGWAOUOXFMY6DQ2UUX6IJUDPCKDKKMU4FKTWGE"
+}

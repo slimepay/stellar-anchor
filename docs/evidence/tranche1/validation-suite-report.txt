@@ -616,4 +616,4 @@
 √ SEP-24 » /transactions » rejects requests with a bad 'asset_code' parameter
 
 Tests:       39 failed, 64 passed, 6 skipped, 109 total
-Time:        73.460s
+Time:        63.797s

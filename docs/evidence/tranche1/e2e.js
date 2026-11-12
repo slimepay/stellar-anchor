@@ -1,5 +1,5 @@
 // End-to-end SEP-24 withdrawal on Stellar testnet against anchor.slimepay.com.
-// Usage: node e2e.js setup | start <amount> | pay | wait
+// Usage: node e2e.js setup | start <amount> | fill | pay | wait
 const fs = require("fs");
 const path = require("path");
 const StellarSdk = require("@stellar/stellar-sdk");
@@ -99,10 +99,29 @@ async function start(amount) {
   }, token);
   log("sep24.withdraw_interactive", { status: r.status, id: r.json.id, type: r.json.type });
   state.txId = r.json.id;
+  state.amount = amount;
   state.interactiveUrl = r.json.url;
   state.token = token;
   save();
   fs.writeFileSync(path.join(DIR, "interactive-url.txt"), r.json.url);
+}
+
+// Submits the Slimepay interactive page as a user would: identity first, then
+// the amount and bank account.
+async function fill() {
+  const u = new URL(state.interactiveUrl);
+  const base = { transaction_id: u.searchParams.get("transaction_id"), token: u.searchParams.get("token") };
+  const post = async (step, form) => {
+    const res = await fetch(`${u.origin}${u.pathname}`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ ...base, ...form }).toString(),
+    });
+    const html = await res.text();
+    log(step, { status: res.status, page: (html.match(/<h[12][^>]*>([^<]*)/) || [])[1] });
+  };
+  await post("interactive.identity", { step: "identity", first_name: "John", last_name: "Doe", email_address: "john@example.com", birth_date: "1990-01-01", id_type: "bvn", id_number: "22222222222" });
+  await post("interactive.withdraw", { amount: state.amount, bank_number: "000013", bank_account_number: "0123456789" });
 }
 
 async function txStatus() {
@@ -148,7 +167,7 @@ async function wait() {
 }
 
 const [cmd, arg] = process.argv.slice(2);
-({ setup, start: () => start(arg || "5"), pay, wait })[cmd]().catch((e) => {
+({ setup, start: () => start(arg || "5"), fill, pay, wait })[cmd]().catch((e) => {
   log("error", { step: cmd, message: e?.response?.data?.extras?.result_codes ? JSON.stringify(e.response.data.extras.result_codes) : e.message });
   process.exit(1);
 });
