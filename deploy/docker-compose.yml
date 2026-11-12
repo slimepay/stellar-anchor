@@ -27,8 +27,10 @@ services:
       - business
     environment:
       STELLAR_NETWORK_NETWORK: TESTNET
-      STELLAR_NETWORK_TYPE: horizon
-      STELLAR_NETWORK_HORIZON_URL: https://horizon-testnet.stellar.org
+      # The observer reads payments from Stellar RPC. Horizon is the fallback:
+      # the Business Server re-checks every payment and reconciles on Horizon.
+      STELLAR_NETWORK_TYPE: rpc
+      STELLAR_NETWORK_RPC_URL: https://soroban-testnet.stellar.org
 
       SECRET_SEP10_SIGNING_SEED: ${SEP10_SIGNING_SEED}
       SECRET_SEP10_JWT_SECRET: ${SEP10_JWT_SECRET}
@@ -64,12 +66,12 @@ services:
       SEP12_ENABLED: "true"
 
       SEP6_ENABLED: "true"
-      SEP6_MORE_INFO_URL_BASE_URL: https://${HOME_DOMAIN}
+      SEP6_MORE_INFO_URL_BASE_URL: https://${WEB_AUTH_DOMAIN}/more-info
 
       SEP24_ENABLED: "true"
       SEP24_INTERACTIVE_URL_BASE_URL: https://${WEB_AUTH_DOMAIN}/sep24/interactive
       SEP24_INTERACTIVE_URL_JWT_EXPIRATION: "1800"
-      SEP24_MORE_INFO_URL_BASE_URL: https://${HOME_DOMAIN}
+      SEP24_MORE_INFO_URL_BASE_URL: https://${WEB_AUTH_DOMAIN}/more-info
       SEP24_KYC_FIELDS_FORWARDING_ENABLED: "false"
 
       SEP31_ENABLED: "false"
@@ -165,6 +167,8 @@ services:
       PLATFORM_API_SECRET: ${PLATFORM_API_SECRET}
       CALLBACK_API_SECRET: ${CALLBACK_API_SECRET}
       SEP24_INTERACTIVE_JWT_SECRET: ${SEP24_INTERACTIVE_JWT_SECRET}
+      SEP6_MORE_INFO_JWT_SECRET: ${SEP6_MORE_INFO_JWT_SECRET}
+      SEP24_MORE_INFO_JWT_SECRET: ${SEP24_MORE_INFO_JWT_SECRET}
       DATABASE_URL: mongodb://mongo:27017
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
       DOJAH_APP_ID: ${DOJAH_APP_ID:-}

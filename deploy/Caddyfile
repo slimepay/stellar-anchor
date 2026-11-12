@@ -1,6 +1,9 @@
 {$WEB_AUTH_DOMAIN} {
-	# The SEP-24 page and health check belong to the Business Server, every other path to SAP.
+	# The SEP-24 page, the more info page and the health check belong to the Business Server, every other path to SAP.
 	handle /sep24/interactive* {
+		reverse_proxy business:8081
+	}
+	handle /more-info* {
 		reverse_proxy business:8081
 	}
 	handle /healthz {

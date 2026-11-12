@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "style"}}
+{{if and .Tx (not .Final)}}<meta http-equiv="refresh" content="15">{{end}}
+<title>{{.Title}} | Slimepay</title>
+</head>
+<body>
+<main>
+  {{template "brand"}}
+
+  <section class="done">
+    {{if and .Tx (not .Failed)}}<div class="badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true">{{if .Final}}<path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/>{{else}}<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>{{end}}</svg></div>
+    {{else}}<div class="badge red"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></div>{{end}}
+    <h1>{{if .Tx}}{{.Status}}{{else}}{{.Title}}{{end}}</h1>
+    {{if .Message}}<p class="msg">{{.Message}}</p>{{end}}
+
+    {{with .Tx}}
+    <dl class="summary">
+      <div><dt>Transaction</dt><dd>{{.ID}}</dd></div>
+      {{with .AmountIn}}<div><dt>Amount</dt><dd>{{.Amount}} {{$.Asset}}</dd></div>{{end}}
+      {{with .AmountOut}}<div><dt>Amount to Receive</dt><dd>{{naira .Amount}}</dd></div>{{end}}
+      {{with .FeeDetails}}<div><dt>Fee</dt><dd>{{.Total}} {{$.Asset}}</dd></div>{{end}}
+      {{with .StartedAt}}<div><dt>Started</dt><dd>{{stamp .}}</dd></div>{{end}}
+      {{with .CompletedAt}}<div><dt>Completed</dt><dd>{{stamp .}}</dd></div>{{end}}
+      {{with .ExternalTransactionID}}<div><dt>Payout Reference</dt><dd>{{.}}</dd></div>{{end}}
+      {{with $.StellarTx}}<div><dt>Stellar Payment</dt><dd><a href="{{$.Explorer}}/tx/{{.}}" rel="noopener noreferrer" target="_blank">{{short .}}</a></dd></div>{{end}}
+    </dl>
+    {{end}}
+  </section>
+</main>
+</body>
+</html>

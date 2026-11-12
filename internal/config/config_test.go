@@ -33,6 +33,8 @@ func validEnv(t *testing.T) {
 		"USDC_ISSUER":                  "",
 		"DOJAH_BASE_URL":               "",
 		"POLL_INTERVAL":                "",
+		"SEP6_MORE_INFO_JWT_SECRET":    "",
+		"SEP24_MORE_INFO_JWT_SECRET":   "",
 	} {
 		t.Setenv(k, v)
 	}
@@ -74,6 +76,21 @@ func TestLoadTestnetWithoutDojah(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoadMoreInfoSecrets(t *testing.T) {
+	validEnv(t)
+	cfg, err := Load()
+	require.NoError(t, err, "the more info secrets are optional")
+	assert.Empty(t, cfg.Sep6MoreInfoSecret)
+	assert.Empty(t, cfg.Sep24MoreInfoSecret)
+
+	t.Setenv("SEP6_MORE_INFO_JWT_SECRET", strings.Repeat("6", 32))
+	t.Setenv("SEP24_MORE_INFO_JWT_SECRET", strings.Repeat("4", 32))
+	cfg, err = Load()
+	require.NoError(t, err)
+	assert.Equal(t, strings.Repeat("6", 32), cfg.Sep6MoreInfoSecret)
+	assert.Equal(t, strings.Repeat("4", 32), cfg.Sep24MoreInfoSecret)
+}
+
 func TestLoadRejectsUnknownNetwork(t *testing.T) {
 	validEnv(t)
 	t.Setenv("STELLAR_NETWORK", "futurenet")
@@ -83,11 +100,13 @@ func TestLoadRejectsUnknownNetwork(t *testing.T) {
 
 func TestLoadRejectsBadValues(t *testing.T) {
 	cases := map[string]string{
-		"SEP10_SIGNING_KEY":   "SBADSECRETINSTEADOFPUBLICKEY",
-		"PLATFORM_API_SECRET": "short",
-		"DATA_ENCRYPTION_KEY": base64.StdEncoding.EncodeToString(make([]byte, 16)),
-		"NGN_PER_USDC":        "-1",
-		"POLL_INTERVAL":       "soon",
+		"SEP10_SIGNING_KEY":          "SBADSECRETINSTEADOFPUBLICKEY",
+		"PLATFORM_API_SECRET":        "short",
+		"DATA_ENCRYPTION_KEY":        base64.StdEncoding.EncodeToString(make([]byte, 16)),
+		"NGN_PER_USDC":               "-1",
+		"POLL_INTERVAL":              "soon",
+		"SEP6_MORE_INFO_JWT_SECRET":  "short",
+		"SEP24_MORE_INFO_JWT_SECRET": "short",
 	}
 	for key, value := range cases {
 		t.Run(key, func(t *testing.T) {

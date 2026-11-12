@@ -50,6 +50,8 @@ PLATFORM_API_URL=http://anchor-platform.railway.internal:8085
 PLATFORM_API_SECRET=<shared with SAP>
 CALLBACK_API_SECRET=<shared with SAP>
 SEP24_INTERACTIVE_JWT_SECRET=<shared with SAP>
+SEP6_MORE_INFO_JWT_SECRET=<same as SECRET_SEP6_MORE_INFO_URL_JWT_SECRET on SAP>
+SEP24_MORE_INFO_JWT_SECRET=<same as SECRET_SEP24_MORE_INFO_URL_JWT_SECRET on SAP>
 DATABASE_URL=<MongoDB>
 DATA_ENCRYPTION_KEY=<base64, 32 bytes>
 CORE_API_URL=https://server.slimepay.com
@@ -81,6 +83,10 @@ CALLBACK_API_BASE_URL=http://stellar-anchor.railway.internal:8081
 PLATFORM_API_BASE_URL=http://anchor-platform.railway.internal:8085
 SEP1_TOML_VALUE=http://stellar-anchor.railway.internal:8081/.well-known/stellar.toml
 SEP24_INTERACTIVE_URL_BASE_URL=https://stellar-anchor-production.up.railway.app/sep24/interactive
+SEP6_MORE_INFO_URL_BASE_URL=https://stellar-anchor-production.up.railway.app/more-info
+SEP24_MORE_INFO_URL_BASE_URL=https://stellar-anchor-production.up.railway.app/more-info
+STELLAR_NETWORK_TYPE=rpc
+STELLAR_NETWORK_RPC_URL=https://soroban-testnet.stellar.org
 ASSETS_TYPE=json
 ASSETS_VALUE=<one line of JSON, see below>
 ```
@@ -112,6 +118,7 @@ On `client`: `STELLAR_ANCHOR_URL=https://anchor.slimepay.com`.
 curl https://slimepay.com/.well-known/stellar.toml
 curl https://anchor.slimepay.com/sep24/info
 curl https://stellar-anchor-production.up.railway.app/healthz
+curl -i https://stellar-anchor-production.up.railway.app/more-info   # 403 without a token
 curl "https://anchor.slimepay.com/auth?account=<any funded G address>"
 ```
 

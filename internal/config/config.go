@@ -45,6 +45,8 @@ type Config struct {
 	PlatformAPISecret    string
 	CallbackAPISecret    string
 	InteractiveJWTSecret string
+	Sep6MoreInfoSecret   string
+	Sep24MoreInfoSecret  string
 
 	DatabaseURL   string
 	DatabaseName  string
@@ -102,6 +104,8 @@ func Load() (*Config, error) {
 		PlatformAPISecret:    req("PLATFORM_API_SECRET"),
 		CallbackAPISecret:    req("CALLBACK_API_SECRET"),
 		InteractiveJWTSecret: req("SEP24_INTERACTIVE_JWT_SECRET"),
+		Sep6MoreInfoSecret:   strings.TrimSpace(os.Getenv("SEP6_MORE_INFO_JWT_SECRET")),
+		Sep24MoreInfoSecret:  strings.TrimSpace(os.Getenv("SEP24_MORE_INFO_JWT_SECRET")),
 		DatabaseURL:          req("DATABASE_URL"),
 		DatabaseName:         getEnv("DATABASE_NAME", "stellar_anchor"),
 		DojahBaseURL:         strings.TrimRight(getEnv("DOJAH_BASE_URL", DojahURL), "/"),
@@ -140,6 +144,16 @@ func Load() (*Config, error) {
 		{"CORE_API_SECRET", cfg.CoreAPISecret},
 	} {
 		if len(kv[1]) < minSharedSecretLen {
+			return nil, fmt.Errorf("%s must be at least %d characters", kv[0], minSharedSecretLen)
+		}
+	}
+	// The more info secrets are optional so the server still starts before
+	// they are set; the status page then turns every link away.
+	for _, kv := range [][2]string{
+		{"SEP6_MORE_INFO_JWT_SECRET", cfg.Sep6MoreInfoSecret},
+		{"SEP24_MORE_INFO_JWT_SECRET", cfg.Sep24MoreInfoSecret},
+	} {
+		if kv[1] != "" && len(kv[1]) < minSharedSecretLen {
 			return nil, fmt.Errorf("%s must be at least %d characters", kv[0], minSharedSecretLen)
 		}
 	}
