@@ -45,9 +45,22 @@ type Verifier interface {
 	Verify(ctx context.Context, id Identity) (Decision, error)
 }
 
+// Testnet accepts every identity without calling Dojah, except two fixture ID
+// numbers that let testers see a rejection and a manual review on testnet.
 type Testnet struct{}
 
-func (Testnet) Verify(context.Context, Identity) (Decision, error) {
+const (
+	TestnetRejectedID = "00000000001"
+	TestnetReviewID   = "00000000002"
+)
+
+func (Testnet) Verify(_ context.Context, id Identity) (Decision, error) {
+	switch id.IDNumber {
+	case TestnetRejectedID:
+		return Decision{Status: StatusRejected, Reason: "testnet fixture: identity does not match"}, nil
+	case TestnetReviewID:
+		return Decision{Status: StatusProcessing, Reason: "testnet fixture: possible screening match, manual review"}, nil
+	}
 	return Decision{Status: StatusAccepted}, nil
 }
 

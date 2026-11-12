@@ -142,6 +142,45 @@ func TestTestnetAccepts(t *testing.T) {
 	assert.Equal(t, StatusAccepted, dec.Status)
 }
 
+func TestTestnetFixtures(t *testing.T) {
+	for id, want := range map[string]string{
+		TestnetRejectedID: StatusRejected,
+		TestnetReviewID:   StatusProcessing,
+		"22222222222":     StatusAccepted,
+		"12345678901":     StatusAccepted,
+	} {
+		ident := bvnIdentity()
+		ident.IDNumber = id
+		dec, err := Testnet{}.Verify(context.Background(), ident)
+		require.NoError(t, err)
+		assert.Equal(t, want, dec.Status, id)
+	}
+}
+
+// On mainnet the fixture IDs mean nothing: they go to Dojah like any other
+// number and Dojah's answer decides.
+func TestDojahIgnoresTestnetFixtures(t *testing.T) {
+	for _, id := range []string{TestnetRejectedID, TestnetReviewID} {
+		var asked string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/v1/kyc/bvn":
+				asked = r.URL.Query().Get("bvn")
+				_, _ = w.Write([]byte(bvnMatch))
+			case "/api/v2/aml/screening":
+				_, _ = w.Write([]byte(noMatch))
+			}
+		}))
+		ident := bvnIdentity()
+		ident.IDNumber = id
+		dec, err := NewDojah(srv.URL, "app-id", "secret-key").Verify(context.Background(), ident)
+		srv.Close()
+		require.NoError(t, err)
+		assert.Equal(t, id, asked, "the fixture ID is sent to Dojah")
+		assert.Equal(t, StatusAccepted, dec.Status, "Dojah's answer decides, not the fixture")
+	}
+}
+
 func TestUnknownIDType(t *testing.T) {
 	dec, err := NewDojah("http://unused", "a", "b").Verify(context.Background(), Identity{IDType: "passport"})
 	require.NoError(t, err)
