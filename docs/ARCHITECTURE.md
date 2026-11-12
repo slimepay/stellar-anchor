@@ -16,7 +16,7 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 | SEP-1, 10, 12, 24 and 6 endpoints (31 and 38 in Tranche 2) | SAP SEP server |
 | Transaction records and status machine | SAP platform server (Postgres) |
 | Customers (encrypted), withdrawal ledger, reconciliation results, audit log | Business Server (MongoDB) |
-| Watching the distribution account for incoming payments | SAP payment observer |
+| Watching the distribution account for incoming payments | SAP payment observer, on Stellar RPC (see [Ledger monitoring](#ledger-monitoring)) |
 | Memo assignment for incoming payments | SAP (random 64 bit ID memos, one per transaction) |
 | KYC data and checks | Business Server (this repo). Mainnet: Slimepay's production Dojah integration. Testnet: the Dojah verification is simulated |
 | Quotes and fees | Business Server. Tranche 1 uses a configured naira rate with no fee; SEP-38 firm quotes come in Tranche 2 |
@@ -43,7 +43,8 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
    v            v
  KYC         Slimepay core backend --> SafeHaven (NGN payout; simulated on testnet)
 
- SAP payment observer --> watches the distribution account on Horizon
+ SAP payment observer --> watches the distribution account on Stellar RPC
+ Business Server ------> re-checks each payment and reconciles on Horizon
 ```
 
 ### SEP-24 withdrawal, end to end
@@ -57,6 +58,18 @@ Slimepay uses the [Stellar Anchor Platform](https://github.com/stellar/anchor-pl
 7. The Business Server picks up the transaction, asks the core backend to pay out through SafeHaven, then reports progress with `notify_offchain_funds_pending` and `notify_offchain_funds_sent`, which completes the transaction. Failures go through `notify_transaction_error`.
 
 SEP-6 follows the same steps without the interactive page. SEP-31 is the same from step 5 onward, with the partner as the sender.
+
+### Ledger monitoring
+
+The proposal set "Stellar RPC + Payment Observer for ledger monitoring (Horizon as fallback)". Three layers do that, and a payout needs the first two to agree:
+
+1. **Payment observer on Stellar RPC.** SAP's observer runs with `STELLAR_NETWORK_TYPE=rpc` against SDF's testnet RPC (`https://soroban-testnet.stellar.org`). It reads `transfer` events from `getEvents`, which also cover classic USDC and XLM payments. It matches each payment to the distribution account by memo and moves the transaction to `pending_anchor`. It resumes from a stored cursor and reconnects after a silence timeout. SAP's ledger client runs on RPC too, so SEP-10 account lookups use it.
+2. **Horizon re-check before every payout.** Before asking core to pay, the Business Server loads the matched transaction from Horizon on its own (`internal/chain`). It checks that the transaction succeeded, that the memo is the one SAP assigned, and that the right asset and amount reached the distribution account. Any difference holds the transaction with an alert instead of paying. If Horizon cannot be reached, nothing is paid and the check runs again on the next poll. A payment the observer reports is never paid on the observer's word alone.
+3. **Reconciliation on Horizon.** A scheduled job compares SAP, Horizon and core for every completed withdrawal, and walks every payment into the distribution account to flag any whose memo belongs to no withdrawal. A payment the observer missed shows up here.
+
+If RPC is unavailable, SAP can go back to Horizon by setting `STELLAR_NETWORK_TYPE=horizon` and restarting. Layers 2 and 3 run on Horizon either way.
+
+Logs and alerts go to the existing Slimepay monitoring. The audit log records every KYC decision (failed KYC attempts included), every withdrawal start, completion, failure and hold, every unmatched payment and every reconciliation result, without personal data. End to end latency is visible per transaction from SAP's timestamps and the ledger close time. Withdrawal 6 completed about 4 seconds after its payment's ledger closed.
 
 ### Reconciliation
 

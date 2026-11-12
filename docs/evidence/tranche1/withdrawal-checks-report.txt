@@ -1,0 +1,36 @@
+Withdrawal checks against https://anchor.slimepay.com (Stellar testnet), 2026-11-12T12:40:53.321Z
+Schemas: @stellar/anchor-tests 0.6.22. Completed withdrawal: 1019f2dd-9083-450c-810a-c2df6f5f2cf4. Pending withdrawal created by this run: 37a62639-ae3d-4fbf-b958-61d9e5004317.
+
+√ SEP-24 » GET /transaction » requires a SEP-10 JWT on /transaction
+√ SEP-24 » GET /transaction » the e2e withdrawal is completed
+√ SEP-24 » GET /transaction » has proper 'completed' withdraw transaction schema on /transaction
+√ SEP-24 » GET /transaction » has a valid 'more_info_url' (completed)
+√ SEP-24 » GET /transaction » returns valid withdraw transaction when using 'stellar_transaction_id' param
+√ SEP-24 » GET /transaction » interactive withdrawal reached pending_user_transfer_start
+√ SEP-24 » GET /transaction » has proper 'pending_user_transfer_start' withdraw transaction schema on /transaction
+√ SEP-24 » GET /transaction » has a valid 'more_info_url' (pending_user_transfer_start)
+√ SEP-24 » GET /transactions » requires a SEP-10 JWT
+√ SEP-24 » GET /transactions » has a record on /transactions after a withdraw request
+√ SEP-24 » GET /transactions » has proper withdraw transaction schema on /transactions
+√ SEP-24 » GET /transactions » returns proper number of transactions when 'limit' parameter is given
+√ SEP-24 » GET /transactions » transactions are returned in descending order of creation
+√ SEP-24 » GET /transactions » returns proper transactions when 'no_older_than' parameter is given
+√ SEP-24 » GET /transactions » only returns withdraw transactions when kind=withdrawal
+√ SEP-24 » GET /transactions » returns an empty list for accounts with no transactions
+√ SEP-6 » setup » SEP-12 customer accepted
+√ SEP-6 » GET /transaction » requires a JWT
+√ SEP-6 » GET /transaction » the processor started the withdrawal once KYC passed
+√ SEP-6 » GET /transaction » has proper withdraw transaction schema on /transaction
+√ SEP-6 » GET /transaction » has a valid 'more_info_url'
+√ SEP-6 » GET /transactions » requires a SEP-10 JWT
+√ SEP-6 » GET /transactions » has a record on /transactions after a withdraw request
+√ SEP-6 » GET /transactions » has proper withdraw transaction schema on /transactions
+√ SEP-6 » GET /transactions » returns proper number of transactions when 'limit' parameter is given
+√ SEP-6 » GET /transactions » transactions are returned in descending order of creation
+√ SEP-6 » GET /transactions » returns proper transactions when 'no_older_than' parameter is given
+√ SEP-6 » GET /transactions » only returns withdraw transactions when kind=withdrawal
+√ SEP-6 » GET /transactions » returns an empty list for accounts with no transactions
+
+Not applicable: SEP-6 GET /withdraw 'account' parameter checks. The suite runs them only when /info's authentication_required is false; Slimepay requires SEP-10.
+
+Checks: 0 failed, 29 passed, 29 total

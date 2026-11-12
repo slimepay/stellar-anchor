@@ -1,0 +1,8 @@
+# Live access checks without credentials, 2026-11-12T12:47Z
+GET /api/stellar-anchor/status -> 403 {"data":{},"message":"Only admins can access this resource.","status":403}
+GET /api/internal/anchor/banks -> 401 {"error":"unauthorized"}
+POST /api/internal/anchor/payouts -> 401 {"error":"unauthorized"}
+GET /api/internal/anchor/payouts/test -> 401 {"error":"unauthorized"}
+POST /api/internal/anchor/payouts with a wrong X-Anchor-Secret -> 401 {"error":"unauthorized"}
+GET https://stellar-anchor-production.up.railway.app/more-info -> 403
+GET https://stellar-anchor-production.up.railway.app/customer (SAP callback API, no token) -> 403
