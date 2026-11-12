@@ -69,6 +69,7 @@ type Transaction struct {
 	FeeDetails            *FeeDetails          `json:"fee_details,omitempty"`
 	StartedAt             *time.Time           `json:"started_at,omitempty"`
 	UpdatedAt             *time.Time           `json:"updated_at,omitempty"`
+	CompletedAt           *time.Time           `json:"completed_at,omitempty"`
 	StellarTransactions   []StellarTransaction `json:"stellar_transactions,omitempty"`
 	SourceAccount         string               `json:"source_account,omitempty"`
 	WithdrawAnchorAccount string               `json:"withdraw_anchor_account,omitempty"`

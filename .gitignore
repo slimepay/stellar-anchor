@@ -1,2 +1,5 @@
 .env
 deploy/.env
+docs/evidence/tranche1/wallet-state*.json
+docs/evidence/tranche1/interactive-url.txt
+docs/evidence/tranche1/node_modules/

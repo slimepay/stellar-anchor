@@ -293,6 +293,18 @@ func TestSep6WaitsForKYC(t *testing.T) {
 	assert.Empty(t, e.platform.calls)
 }
 
+func TestSep6RejectedKYCNeverStarts(t *testing.T) {
+	tx := incomplete("tx-6", "6", AssetXLM)
+	tx.AmountExpected.Amount = "100"
+	e := newEnv(tx)
+	e.customers[user+":"].Status = customer.StatusRejected
+
+	e.proc.Tick(ctx)
+	assert.Equal(t, sap.StatusIncomplete, e.platform.txs["tx-6"].Status)
+	assert.Empty(t, e.platform.calls)
+	assert.Empty(t, e.core.payouts)
+}
+
 func TestSep6BadInputErrors(t *testing.T) {
 	noAmount := incomplete("tx-a", "6", AssetXLM)
 	tooSmall := incomplete("tx-b", "6", AssetXLM)

@@ -86,6 +86,15 @@ func main() {
 	})
 	r.Get("/.well-known/stellar.toml", toml.Handler(cfg))
 	r.Handle("/sep24/interactive", interactive.NewHandler(cfg.InteractiveJWTSecret, platform, customers, withdrawals, core))
+	explorer := "https://stellar.expert/explorer/testnet"
+	if cfg.Network == config.Mainnet {
+		explorer = "https://stellar.expert/explorer/public"
+	}
+	moreInfoSecrets := auth.MoreInfoSecrets{Sep6: cfg.Sep6MoreInfoSecret, Sep24: cfg.Sep24MoreInfoSecret}
+	if moreInfoSecrets.Sep6 == "" || moreInfoSecrets.Sep24 == "" {
+		log.Warn().Msg("SEP6_MORE_INFO_JWT_SECRET or SEP24_MORE_INFO_JWT_SECRET is not set; more info links for that SEP are refused")
+	}
+	r.Handle("/more-info", interactive.NewMoreInfo(moreInfoSecrets, platform, explorer))
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireCallbackAuth(cfg.CallbackAPISecret))
 		customer.NewHandler(customers).Routes(r)

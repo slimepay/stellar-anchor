@@ -1,0 +1,9 @@
+{
+  "name": "slimepay-anchor-tranche1-evidence",
+  "private": true,
+  "description": "Scripts that produced the Tranche 1 testnet evidence",
+  "dependencies": {
+    "@stellar/anchor-tests": "0.6.22",
+    "@stellar/stellar-sdk": "13.3.0"
+  }
+}

@@ -28,7 +28,7 @@ import (
 //go:embed templates/*.html
 var templateFS embed.FS
 
-var pages = template.Must(template.New("").Funcs(template.FuncMap{"naira": naira}).ParseFS(templateFS, "templates/*.html"))
+var pages = template.Must(template.New("").Funcs(template.FuncMap{"naira": naira, "stamp": stamp, "short": short}).ParseFS(templateFS, "templates/*.html"))
 
 // receiveScript keeps "You Will Receive" in step with the amount. The CSP allows
 // only this script, by hash.

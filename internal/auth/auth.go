@@ -1,6 +1,6 @@
 // Package auth handles the HS256 tokens shared with the Anchor Platform:
-// callback requests from SAP, Platform API requests to SAP, and the SEP-24
-// interactive URL token.
+// callback requests from SAP, Platform API requests to SAP, the SEP-24
+// interactive URL token and the SEP-6 and SEP-24 more_info_url tokens.
 package auth
 
 import (
@@ -16,6 +16,8 @@ const (
 	AudCallbackAPI      = "callback_api"
 	AudPlatformAPI      = "platform_api"
 	AudSep24Interactive = "sep24_interactive"
+	AudSep6MoreInfo     = "sep6_more_info"
+	AudSep24MoreInfo    = "sep24_more_info"
 )
 
 // PlatformToken signs a short lived token for calls to the SAP Platform API.
@@ -73,6 +75,36 @@ func ParseInteractive(token, secret, transactionID string) (*InteractiveClaims, 
 		return nil, errors.New("token has no subject")
 	}
 	return claims, nil
+}
+
+// MoreInfoSecrets are the secrets SAP signs SEP-6 and SEP-24 more_info_url
+// tokens with.
+type MoreInfoSecrets struct {
+	Sep6  string
+	Sep24 string
+}
+
+// ParseMoreInfo verifies a more_info_url token against the secret of the SEP
+// it claims, checks that it was issued for transactionID, and returns that SEP
+// ("6" or "24").
+func ParseMoreInfo(token, transactionID string, s MoreInfoSecrets) (string, error) {
+	for _, c := range []struct{ sep, secret, aud string }{
+		{"24", s.Sep24, AudSep24MoreInfo},
+		{"6", s.Sep6, AudSep6MoreInfo},
+	} {
+		if c.secret == "" {
+			continue
+		}
+		claims := &jwt.RegisteredClaims{}
+		if _, err := parse(token, c.secret, c.aud, claims); err != nil {
+			continue
+		}
+		if claims.ID == "" || claims.ID != transactionID {
+			return "", errors.New("token was not issued for this transaction")
+		}
+		return c.sep, nil
+	}
+	return "", errors.New("invalid more info token")
 }
 
 func parse(token, secret, audience string, claims jwt.Claims) (*jwt.Token, error) {
