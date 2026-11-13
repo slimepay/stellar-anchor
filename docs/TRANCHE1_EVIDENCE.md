@@ -130,11 +130,33 @@ The wallet's SEP-12 `PUT /customer` reaches SAP, SAP calls the Business Server's
 
 ### Access control and testnet/production separation
 
-- Live checks without credentials ([live-access-checks.txt](evidence/tranche1/access-and-separation/live-access-checks.txt)):
-  - core's admin anchor status returns 403 "Only admins can access this resource".
-  - core's internal anchor payout API returns 401 without the shared secret, and also with a wrong one.
-  - the Business Server's SAP callback API and `/more-info` return 403 without a valid token.
-- Admin views need the `admin` or `superadmin` role and a verified authenticator (TOTP) session (`requireAdmin` in core, `server/router/admin_guard.go`).
+Admin access in core has three layers:
+
+1. **Role**, checked by the server. Only `admin` and `super_admin` accounts reach admin endpoints.
+2. **Authenticator (TOTP) session**, checked by the server. An admin must enter a 2FA code in the current session before any admin endpoint runs.
+3. **Page privileges**, checked by the admin pages. A super admin decides which admin pages each admin can open.
+
+Live checks against production, without credentials ([live-access-checks.txt](evidence/tranche1/access-and-separation/live-access-checks.txt)):
+- core's admin anchor status returns 403 "Only admins can access this resource".
+- core's internal anchor payout API returns 401 without the shared secret, and also with a wrong one.
+- the Business Server's SAP callback API and `/more-info` return 403 without a valid token.
+
+Screenshots of each layer working. These come from a local run of core's `main` (commit `46f075a`, the code production runs) with test accounts on the `slimepay-qa.test` domain, so no real user or admin appears. The QR code and setup key in screenshot 2 are blurred. The HTTP responses seen during the run are in [local-run-log.json](evidence/tranche1/access-and-separation/local-run-log.json).
+
+| # | Account | What happens | Server response for the same session |
+|---|---|---|---|
+| 1 | Regular user | Opening `/admin` sends them back to the dashboard. The top bar has no Admin tab. [Screenshot](evidence/tranche1/access-and-separation/1-user-sent-away-from-admin.png) | 403 "Only admins can access this resource." |
+| 2 | Admin who has not set up 2FA | Stopped at "Set up 2FA to access the dashboard". [Screenshot](evidence/tranche1/access-and-separation/2-admin-stopped-at-2fa.png) | 403 "Authenticator setup required." After entering a code: 200. Without the 2FA session header: 403 "Authenticator verification required." |
+| 3 | Super admin, after 2FA | The Users list shows each account's role: Super_admin, Admin and User. Only a super admin gets the button to assign privileges. [Screenshot](evidence/tranche1/access-and-separation/3-super-admin-users-and-roles.png) | |
+| 4 | Super admin | Assigning privileges to `qa.newadmin`: role Admin, and only "Admin Dashboard" ticked out of 15 admin pages. [Screenshot](evidence/tranche1/access-and-separation/4-super-admin-assign-privileges.png) | |
+| 5 | That limited admin, after 2FA | Opening Users, which was not granted, shows "Access Denied". [Screenshot](evidence/tranche1/access-and-separation/5-limited-admin-denied-page.png) | |
+
+Two settings were made in the local database only. The users read rule lets admins and super admins list users, since production's rule lives in its own database. Email visibility is on for the test accounts, so the list shows their addresses.
+
+The server checks are covered by `TestAdminGuardRoleAndMFA` in core, which calls a real admin endpoint and checks that it does not run when refused. All seven cases pass: no login, regular user, admin without 2FA set up, admin with 2FA but no session, a made-up session token, a regular user holding an admin's session, and an admin with a verified session, the only one let through ([go-test-admin-roles-2fa.txt](evidence/tranche1/access-and-separation/go-test-admin-roles-2fa.txt)). While collecting this evidence we found that an admin without a verified 2FA session could still use admin endpoints, because the 2FA refusal did not stop the request. Commit `46f075a` in core fixes it, and the test fails on the old code.
+
+Testnet and production separation:
+
 - Core refuses a payout for the other network, and on testnet it never reaches SafeHaven: `TestAnchorPayoutRefusesOtherNetwork` and `TestAnchorNetworkSelectsBank` in [go-test-core-anchor.txt](evidence/tranche1/access-and-separation/go-test-core-anchor.txt).
 - The deployment runs only on testnet: `STELLAR_NETWORK=testnet` on the Business Server, `ANCHOR_NETWORK=testnet` on core and `STELLAR_NETWORK_NETWORK=TESTNET` on SAP, with keys made for testnet only ([runbook](TESTNET_RUNBOOK.md#1-keys-and-accounts)). Mainnet gets its own signing key, distribution account and secrets. Secrets live only in Railway variables.
 

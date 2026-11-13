@@ -1,0 +1,10 @@
+# go test -v ./router/ -run TestAdminGuardRoleAndMFA, slimepay-core @ 46f075a, 2026-11-13T12:51Z
+--- PASS: TestAdminGuardRoleAndMFA (1.09s)
+    --- PASS: TestAdminGuardRoleAndMFA/no_login (0.00s)
+    --- PASS: TestAdminGuardRoleAndMFA/regular_user (0.00s)
+    --- PASS: TestAdminGuardRoleAndMFA/admin_without_2FA_set_up (0.00s)
+    --- PASS: TestAdminGuardRoleAndMFA/admin_with_2FA_but_no_verified_session (0.00s)
+    --- PASS: TestAdminGuardRoleAndMFA/admin_with_a_made-up_session_token (0.00s)
+    --- PASS: TestAdminGuardRoleAndMFA/regular_user_with_an_admin's_session_token (0.00s)
+    --- PASS: TestAdminGuardRoleAndMFA/admin_with_a_verified_2FA_session (0.00s)
+ok  	aidmedium/slimepay/router	1.535s

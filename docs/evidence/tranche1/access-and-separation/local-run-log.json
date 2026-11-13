@@ -1,0 +1,110 @@
+{
+  "run": "local run of slimepay-core main @ 46f075a with test accounts",
+  "access_checks": [
+    {
+      "at": "2026-11-12T16:40:46.482Z",
+      "step": "login",
+      "email": "qa.user@slimepay-qa.test",
+      "landed": "/dashboard"
+    },
+    {
+      "at": "2026-11-12T16:40:59.757Z",
+      "step": "closed the phone number prompt",
+      "dismissed": true
+    },
+    {
+      "at": "2026-11-12T16:40:59.757Z",
+      "step": "user opens /admin",
+      "finalPath": "/dashboard"
+    },
+    {
+      "at": "2026-11-12T16:41:00.243Z",
+      "step": "user calls admin API",
+      "request": "GET /api/stellar-anchor/status",
+      "status": 403,
+      "body": "{\"data\":{},\"message\":\"Only admins can access this resource.\",\"status\":403}\n"
+    },
+    {
+      "at": "2026-11-12T16:41:05.860Z",
+      "step": "login",
+      "email": "qa.newadmin@slimepay-qa.test",
+      "landed": "/auth/admin-mfa"
+    },
+    {
+      "at": "2026-11-12T16:41:16.692Z",
+      "step": "admin without 2FA opens /admin",
+      "finalPath": "/auth/admin-mfa",
+      "setupSecretIssued": true
+    },
+    {
+      "at": "2026-11-12T16:41:16.705Z",
+      "step": "admin without 2FA calls admin API",
+      "request": "GET /api/stellar-anchor/status",
+      "status": 403,
+      "body": "{\"data\":{},\"message\":\"Authenticator setup required.\",\"status\":403}\n"
+    },
+    {
+      "at": "2026-11-12T16:41:17.258Z",
+      "step": "blurred for the screenshot",
+      "setupKeyShown": true,
+      "elementsBlurred": 2
+    },
+    {
+      "at": "2026-11-12T16:41:31.581Z",
+      "step": "admin after entering the code",
+      "finalPath": "/admin"
+    },
+    {
+      "at": "2026-11-12T16:41:32.044Z",
+      "step": "admin with verified 2FA calls admin API",
+      "request": "GET /api/stellar-anchor/status",
+      "status": 200,
+      "body": "{\"configured\":false,\"healthOk\":false,\"discoveryOk\":false}\n"
+    },
+    {
+      "at": "2026-11-12T16:41:32.054Z",
+      "step": "same admin without the 2FA session header",
+      "request": "GET /api/stellar-anchor/status",
+      "status": 403,
+      "body": "{\"data\":{},\"message\":\"Authenticator verification required.\",\"status\":403}\n"
+    }
+  ],
+  "role_checks": [
+    {
+      "at": "2026-11-13T12:38:39.542Z",
+      "step": "login",
+      "email": "qa.superadmin@slimepay-qa.test",
+      "landed": "/auth/admin-mfa"
+    },
+    {
+      "at": "2026-11-13T12:38:50.361Z",
+      "step": "passed admin 2FA"
+    },
+    {
+      "at": "2026-11-13T12:39:01.250Z",
+      "step": "super admin opens Users",
+      "finalPath": "/admin/users"
+    },
+    {
+      "at": "2026-11-13T12:39:03.341Z",
+      "step": "super admin opens Assign Privileges for the limited admin",
+      "opened": true
+    },
+    {
+      "at": "2026-11-13T12:39:09.665Z",
+      "step": "login",
+      "email": "qa.newadmin@slimepay-qa.test",
+      "landed": "/auth/admin-mfa"
+    },
+    {
+      "at": "2026-11-13T12:39:20.136Z",
+      "step": "passed admin 2FA"
+    },
+    {
+      "at": "2026-11-13T12:39:29.074Z",
+      "step": "limited admin opens Users without that privilege",
+      "finalPath": "/admin/users",
+      "accessDenied": true
+    }
+  ]
+}
